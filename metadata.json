@@ -1,0 +1,7 @@
+{
+  "name": "Physiognomy AI: Multi-Tradition Face Reading",
+  "description": "An AI-powered face reading app combining MediaPipe landmarks with ancient wisdom from Chinese Mian Xiang, Ayurvedic Doshas, and Kemetic Neter archetypes.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

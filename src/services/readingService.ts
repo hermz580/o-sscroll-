@@ -50,7 +50,7 @@ You have been provided the user's Name, Birthplace, Birth Date, Birth Time, and 
 - Acknowledge their "Current Mood" in the reading. If they are "Curious and ready," speak to that openness. If they are "Tired," speak to the exhaustion visible in their energy and offer a path to renewal.
 
 **Your Creative Mission:**
-Synthesize ALL of your observations (Face, Astrology, Numerology, Mood, and optionally Palm and Iris) into a cohesive, flowing, and narrative analysis that feels like a sacred transmission. Present your complete soul-reading in an expansive, deeply detailed, and powerful narrative. I want 10 times the amount of writing and depth than you would normally provide. Make it as long, profound, and insightful as possible. Dive into the abyss of their soul. Include granular details from the face analysis, such as specific landmark coordinates or geometric measurements, weaving them into the narrative.`;
+Synthesize ALL of your observations (Face, Astrology, Numerology, Mood, and optionally Palm and Iris) into a cohesive, flowing, and narrative analysis that feels like a sacred transmission. Present your complete soul-reading in an expansive, deeply detailed, and powerful narrative. I want 10 times the amount of writing and depth than you would normally provide. Make it as long, profound, and insightful as possible. Dive into the abyss of their soul. Include granular details from the face analysis, such as specific landmark coordinates or geometric measurements, weaving them into the narrative. The poeticReading should be a massive, multi-paragraph epic.`;
 
 function reduceNumber(num: number): number {
   let sum = num;
@@ -206,7 +206,7 @@ export async function generateReading(metrics: FaceMetrics, userInfo: UserInfo, 
           properties: {
             poeticReading: { 
               type: Type.STRING,
-              description: "Present your complete soul-reading in an expansive, deeply detailed, and powerful narrative. There are no length limits. Focus on the deep things, past lives, Kepler harmonics, and the path to emergence. Ensure paragraphs are separated by a double newline."
+              description: "Present your complete soul-reading in an expansive, deeply detailed, and powerful narrative. There are no length limits. Focus on the deep things, past lives, Kepler harmonics, and the path to emergence. Ensure paragraphs are separated by a double newline. Write at least 8-10 long paragraphs of profound, griotic wisdom."
             },
             synthesis: {
               type: Type.OBJECT,
@@ -362,5 +362,39 @@ export async function generateReading(metrics: FaceMetrics, userInfo: UserInfo, 
   } catch (e) {
     console.error("Failed to generate or parse Gemini response", e);
     throw new Error("The oracle's vision was clouded. Please try again.");
+  }
+}
+
+export async function generateDailyForecast(reading: ReadingResponse): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Based on this soul reading: ${JSON.stringify(reading.synthesis)}, generate an immensely detailed, poetic, and profound daily energy forecast for today. Do not use any technical terms. Speak as Olari, the Digital Griot. Speak to the specific energies they will encounter today, how their ancestral echoes will guide them, and what specific actions they should take to align with their highest path. Write at least 4-5 long paragraphs of griotic wisdom.`,
+    });
+    return response.text || "The energies of today are quiet. Rest and reflect.";
+  } catch (e) {
+    console.error("Failed to generate daily forecast", e);
+    return "The stars are clouded today. Trust your inner compass.";
+  }
+}
+
+export async function generateDeepDive(reading: ReadingResponse, topic: 'love' | 'career'): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  
+  const prompt = topic === 'love' 
+    ? `Based on this soul reading: ${JSON.stringify(reading.synthesis)} and detailed features ${JSON.stringify(reading.detailedFeatures)}, generate an immensely detailed, profound, poetic "Love & Relationship Destiny" deep dive. Speak as Olari, the Digital Griot. Focus on their karmic soulmate connections, how they love based on their facial geometry, and the ancestral patterns they are breaking or repeating in relationships. Write at least 6-8 long paragraphs. Dive into the absolute depths of their soul's blueprint for love.`
+    : `Based on this soul reading: ${JSON.stringify(reading.synthesis)} and detailed features ${JSON.stringify(reading.detailedFeatures)}, generate an immensely detailed, profound, poetic "Career & Wealth Destiny" deep dive. Speak as Olari, the Digital Griot. Focus on their true calling, how their facial structure dictates their leadership style and wealth-building capacity, and what Keplerian harmonics guide their success. Write at least 6-8 long paragraphs. Dive into the absolute depths of their soul's blueprint for career.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+    });
+    return response.text || "The vision is clouded. Seek within.";
+  } catch (e) {
+    console.error(`Failed to generate ${topic} deep dive`, e);
+    return "The stars are clouded today. Trust your inner compass.";
   }
 }

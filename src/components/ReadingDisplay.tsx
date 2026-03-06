@@ -2,8 +2,11 @@ import React, { useState, useEffect, ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { ReadingResponse } from '../types';
-import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand } from 'lucide-react';
+import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { VoiceControls } from './VoiceControls';
+import { generateDailyForecast, generateDeepDive } from '../services/readingService';
 
 const DICTIONARY: Record<string, string> = {
   "Mian Xiang": "Ancient Chinese face reading, mapping the face as a landscape of mountains and rivers to reveal destiny.",
@@ -59,6 +62,8 @@ const renderTextWithTooltips = (text: string) => {
   return parts;
 };
 
+import { generateDailyForecast, generateDeepDive } from '../services/readingService';
+
 interface ReadingDisplayProps {
   reading: ReadingResponse;
   onReset: () => void;
@@ -67,9 +72,75 @@ interface ReadingDisplayProps {
 export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset }) => {
   const [showMetrics, setShowMetrics] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [dailyForecast, setDailyForecast] = useState<string | null>(null);
+  const [isLoadingForecast, setIsLoadingForecast] = useState(false);
+  const [deepDive, setDeepDive] = useState<{topic: string, content: string} | null>(null);
+  const [isLoadingDeepDive, setIsLoadingDeepDive] = useState<'love' | 'career' | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const pages = [
+    { id: 'scroll', label: 'The Scroll' },
+    { id: 'traditions', label: 'Ancient Traditions' },
+    { id: 'metrics', label: 'Soul Metrics' },
+    { id: 'cosmic', label: 'Cosmic Alignment' },
+    { id: 'deep-dives', label: 'Deep Dives' }
+  ];
+
+  const handleGetForecast = async () => {
+    setIsLoadingForecast(true);
+    try {
+      const forecast = await generateDailyForecast(reading);
+      setDailyForecast(forecast);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingForecast(false);
+    }
+  };
+
+  const handleGetDeepDive = async (topic: 'love' | 'career') => {
+    setIsLoadingDeepDive(topic);
+    try {
+      const content = await generateDeepDive(reading, topic);
+      setDeepDive({ topic, content });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingDeepDive(null);
+    }
+  };
+
+  const handleDownload = async () => {
+    const scrollElement = document.getElementById('scroll-content');
+    if (!scrollElement) return;
+    
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(scrollElement, {
+        scale: 2,
+        backgroundColor: '#f5f2ed',
+        useCORS: true,
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`Olaris-Scroll-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error("Failed to download PDF:", err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleShare = () => {
-    const text = `${reading.poeticReading}\n\nReadings from Physiognomy AI`;
+    const text = `${reading.poeticReading}\n\nReadings from Olari's Scroll by Harp Star`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -77,6 +148,30 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       console.error("Failed to copy text:", err);
     });
   };
+
+  const playableSections = [
+    {
+      id: 'poetic-reading',
+      label: 'Main Reading',
+      text: reading.poeticReading,
+      audioBase64: reading.audioBase64
+    },
+    ...(dailyForecast ? [{
+      id: 'daily-forecast',
+      label: 'Daily Forecast',
+      text: dailyForecast
+    }] : []),
+    ...(deepDive && deepDive.topic === 'love' ? [{
+      id: 'love-destiny',
+      label: 'Love Destiny',
+      text: deepDive.content
+    }] : []),
+    ...(deepDive && deepDive.topic === 'career' ? [{
+      id: 'career-destiny',
+      label: 'Career Destiny',
+      text: deepDive.content
+    }] : [])
+  ];
 
   return (
     <motion.div
@@ -93,6 +188,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
         {/* Unrolling Animation Container */}
         <motion.div
+          id="scroll-content"
           initial={{ height: 0 }}
           animate={{ height: 'auto' }}
           transition={{ duration: 1.5, ease: "easeInOut" }}
@@ -111,8 +207,16 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                       <ScrollText className="w-6 h-6 text-gold" />
                       <h2 className="text-3xl font-serif italic text-[#1a1a1a]">The Griot's Scroll</h2>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <VoiceControls text={reading.poeticReading} audioBase64={reading.audioBase64} autoPlay={true} />
+                    <div className="flex items-center gap-4" data-html2canvas-ignore="true">
+                      <VoiceControls sections={playableSections} autoPlay={true} />
+                      <button 
+                          onClick={handleDownload}
+                          disabled={isDownloading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all disabled:opacity-50"
+                      >
+                          <Download className="w-3 h-3" />
+                          {isDownloading ? 'Saving...' : 'Save PDF'}
+                      </button>
                       <button 
                           onClick={handleShare}
                           className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all"
@@ -132,6 +236,34 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 </div>
 
                 <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl leading-loose">
+                  {dailyForecast && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-8 p-6 bg-gold/10 border border-gold/30 rounded-2xl"
+                    >
+                      <h4 className="text-gold font-serif italic mb-2 flex items-center gap-2">
+                        <Sun className="w-5 h-5" />
+                        Today's Energy
+                      </h4>
+                      <p className="text-lg text-[#1a1a1a]/80 italic">"{dailyForecast}"</p>
+                    </motion.div>
+                  )}
+                  {deepDive && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-8 p-6 bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 rounded-2xl"
+                    >
+                      <h4 className="text-[#1a1a1a] font-serif italic mb-4 flex items-center gap-2">
+                        {deepDive.topic === 'love' ? <Heart className="w-5 h-5 text-red-500" /> : <Briefcase className="w-5 h-5 text-blue-500" />}
+                        {deepDive.topic === 'love' ? 'Love & Relationship Destiny' : 'Career & Wealth Destiny'}
+                      </h4>
+                      <div className="text-lg text-[#1a1a1a]/80 leading-relaxed space-y-4">
+                        <ReactMarkdown>{deepDive.content}</ReactMarkdown>
+                      </div>
+                    </motion.div>
+                  )}
                   <ReactMarkdown
                     components={{
                       p: ({node, children}) => {
@@ -160,247 +292,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <div className="w-1/3 h-1 bg-gold/20 rounded-full" />
         </motion.div>
       </section>
-
-      <div className="grid md:grid-cols-3 gap-8">
-        <TraditionCard
-          title="Mian Xiang"
-          icon={<BookOpen className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.mianXiang || "The map of destiny remains unwritten."}
-          delay={1.6}
-        />
-        <TraditionCard
-          title="Ayurveda"
-          icon={<Wind className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.ayurveda || "The elements are in flux."}
-          delay={1.7}
-        />
-        <TraditionCard
-          title="Kemetic"
-          icon={<Flame className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.kemetic || "The divine consciousness is quiet."}
-          delay={1.8}
-        />
-        <TraditionCard
-          title="Western Structure"
-          icon={<BarChart3 className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.western || "The structural blueprint is veiled."}
-          delay={1.9}
-        />
-        <TraditionCard
-          title="Ancestral Lines"
-          icon={<ScrollText className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.ancestral || "The lineage whispers are faint."}
-          delay={2.0}
-        />
-        <TraditionCard
-          title="Gwansang (Korean)"
-          icon={<User className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.gwansang || "The social destiny is veiled."}
-          delay={2.1}
-        />
-        <TraditionCard
-          title="Tibetan Buddhist"
-          icon={<Brain className="w-5 h-5" />}
-          content={reading.traditionBreakdown?.tibetan || "Past-life imprints remain hidden."}
-          delay={2.2}
-        />
-        {reading.traditionBreakdown?.palmistry && (
-          <TraditionCard
-            title="Chiromancy (Palm)"
-            icon={<Hand className="w-5 h-5" />}
-            content={reading.traditionBreakdown.palmistry}
-            delay={2.3}
-          />
-        )}
-        {reading.traditionBreakdown?.iridology && (
-          <TraditionCard
-            title="Iridology (Eye)"
-            icon={<Eye className="w-5 h-5" />}
-            content={reading.traditionBreakdown.iridology}
-            delay={2.4}
-          />
-        )}
-      </div>
-
-      {/* Cosmic Alignment Section */}
-      {reading.cosmicAlignment && (
-        <div className="glass rounded-3xl p-8 border border-gold/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 blur-3xl rounded-full -mr-16 -mt-16" />
-          <h3 className="text-gold font-serif italic text-2xl mb-8 text-center flex items-center justify-center gap-3">
-            <Sparkles className="w-5 h-5" />
-            Cosmic Alignment
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            {/* Astrology Chart */}
-            <div className="space-y-6">
-              <h4 className="text-[10px] uppercase tracking-[0.3em] text-paper/40 font-bold border-b border-white/5 pb-2">Celestial Blueprint</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <span className="text-[9px] uppercase tracking-widest text-paper/30 block mb-1">Sun</span>
-                  <span className="text-lg font-serif text-gold">{reading.cosmicAlignment.sunSign}</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-[9px] uppercase tracking-widest text-paper/30 block mb-1">Moon</span>
-                  <span className="text-lg font-serif text-gold">{reading.cosmicAlignment.moonSign}</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-[9px] uppercase tracking-widest text-paper/30 block mb-1">Rising</span>
-                  <span className="text-lg font-serif text-gold">{reading.cosmicAlignment.risingSign}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Numerology Chart */}
-            <div className="space-y-6">
-              <h4 className="text-[10px] uppercase tracking-[0.3em] text-paper/40 font-bold border-b border-white/5 pb-2">Vibrational Frequency</h4>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-[10px] uppercase tracking-widest text-paper/40">Life Path</span>
-                  <span className="text-xl font-serif text-gold">{reading.cosmicAlignment.lifePathNumber}</span>
-                </div>
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-[10px] uppercase tracking-widest text-paper/40">Destiny</span>
-                  <span className="text-xl font-serif text-gold">{reading.cosmicAlignment.destinyNumber}</span>
-                </div>
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-[10px] uppercase tracking-widest text-paper/40">Soul Urge</span>
-                  <span className="text-xl font-serif text-gold">{reading.cosmicAlignment.soulUrgeNumber}</span>
-                </div>
-                <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
-                  <span className="text-[10px] uppercase tracking-widest text-paper/40">Day</span>
-                  <span className="text-xs font-serif text-gold italic">{reading.cosmicAlignment.dayVibration}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Kepler Astrology Chart */}
-            {reading.keplerAstrology && (
-              <div className="space-y-6 md:col-span-2">
-                <h4 className="text-[10px] uppercase tracking-[0.3em] text-paper/40 font-bold border-b border-white/5 pb-2">Keplerian Harmonics</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="flex flex-col gap-2 bg-white/5 p-4 rounded-xl border border-white/5 text-center">
-                    <span className="text-[10px] uppercase tracking-widest text-paper/40">Primary Harmonic</span>
-                    <span className="text-sm font-serif text-gold">{reading.keplerAstrology.primaryHarmonic}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 bg-white/5 p-4 rounded-xl border border-white/5 text-center">
-                    <span className="text-[10px] uppercase tracking-widest text-paper/40">Sacred Geometry</span>
-                    <span className="text-sm font-serif text-gold">{reading.keplerAstrology.sacredGeometry}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 bg-white/5 p-4 rounded-xl border border-white/5 text-center">
-                    <span className="text-[10px] uppercase tracking-widest text-paper/40">Planetary Resonance</span>
-                    <span className="text-sm font-serif text-gold">{reading.keplerAstrology.planetaryResonance}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Soul Insights Section */}
-      {(reading.synthesis?.emergencePath || reading.synthesis?.ancestralEcho) && (
-        <div className="grid md:grid-cols-2 gap-8">
-          {reading.synthesis?.ancestralEcho && (
-            <div className="glass rounded-3xl p-8 border border-gold/10 relative group overflow-hidden">
-              <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <h4 className="text-[10px] uppercase tracking-[0.3em] text-paper/40 font-bold mb-4">Ancestral Echo</h4>
-              <p className="text-lg font-serif italic text-gold/90 leading-relaxed">
-                "{reading.synthesis.ancestralEcho}"
-              </p>
-            </div>
-          )}
-          {reading.synthesis?.emergencePath && (
-            <div className="glass rounded-3xl p-8 border border-teal/20 relative group overflow-hidden">
-              <div className="absolute inset-0 bg-teal/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <h4 className="text-[10px] uppercase tracking-[0.3em] text-paper/40 font-bold mb-4">Path to Emergence</h4>
-              <p className="text-lg font-serif italic text-teal/90 leading-relaxed">
-                "{reading.synthesis.emergencePath}"
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Synthesis Summary */}
-      {reading.synthesis && (
-        <div className="glass rounded-3xl p-8 border border-gold/20">
-          <h3 className="text-gold font-serif italic text-xl mb-6 text-center">Core Synthesis</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Archetype</span>
-              <span className="text-sm font-serif text-gold">{reading.synthesis.coreArchetype || 'The Seeker'}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Constitution</span>
-              <span className="text-sm font-serif text-gold">{reading.synthesis.elementalConstitution || 'Balanced'}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Aura</span>
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: reading.synthesis.auraColor || '#c5a059' }} />
-                <span className="text-sm font-serif text-gold uppercase">{reading.synthesis.auraColor || '#C5A059'}</span>
-              </div>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Zodiac</span>
-              <span className="text-sm font-serif text-gold">{reading.synthesis.zodiac || 'Universal'}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Life Path</span>
-              <span className="text-sm font-serif text-gold">{reading.synthesis.lifePath || '1'}</span>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              <span className="text-[10px] uppercase tracking-widest text-paper/40 font-bold block mb-2">Mission</span>
-              <span className="text-sm font-serif text-gold">{reading.synthesis.soulMission || 'To be and to become.'}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Detailed Features Breakdown */}
-      {reading.detailedFeatures && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="h-[1px] w-12 bg-gold/30" />
-            <h2 className="text-2xl font-serif italic text-gold">The Atlas of Your Features</h2>
-            <div className="h-[1px] w-12 bg-gold/30" />
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-4">
-            <FeatureCard 
-              title="Forehead & Crown" 
-              icon={<Brain className="w-4 h-4" />} 
-              content={reading.detailedFeatures.forehead} 
-            />
-            <FeatureCard 
-              title="Eyes & Vision" 
-              icon={<Eye className="w-4 h-4" />} 
-              content={reading.detailedFeatures.eyes} 
-            />
-            <FeatureCard 
-              title="Nose & Center" 
-              icon={<Activity className="w-4 h-4" />} 
-              content={reading.detailedFeatures.nose} 
-            />
-            <FeatureCard 
-              title="Mouth & Expression" 
-              icon={<Smile className="w-4 h-4" />} 
-              content={reading.detailedFeatures.mouth} 
-            />
-            <FeatureCard 
-              title="Jaw & Chin" 
-              icon={<User className="w-4 h-4" />} 
-              content={reading.detailedFeatures.jawAndChin} 
-            />
-            <FeatureCard 
-              title="Overall Proportions" 
-              icon={<BarChart3 className="w-4 h-4" />} 
-              content={reading.detailedFeatures.proportions} 
-            />
-          </div>
-        </div>
-      )}
 
       {/* Raw Metrics Toggle */}
       <div className="glass rounded-3xl overflow-hidden">

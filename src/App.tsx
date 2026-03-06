@@ -127,6 +127,7 @@ export default function App() {
           className="text-6xl md:text-8xl font-serif text-paper leading-tight mb-6"
         >
           Olari's <span className="italic text-gold">Scroll</span>
+          <span className="text-3xl md:text-5xl ml-4 font-serif italic rainbow-text">by Harp ★ Star</span>
         </motion.h1>
         
         <motion.p

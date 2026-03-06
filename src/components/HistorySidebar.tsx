@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { History, Trash2, X } from 'lucide-react';
 import { ReadingResponse } from '../types';
 
@@ -49,53 +49,64 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {history.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8">
-              <History className="w-12 h-12 text-gold/10 mb-4" />
-              <p className="text-paper/30 text-sm font-light italic">No past readings found. Your journey begins with the first look.</p>
-            </div>
-          ) : (
-            history.map((reading) => (
-              <div 
-                key={reading.id}
-                className="group relative glass rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
-                onClick={() => onSelect(reading)}
+          <AnimatePresence>
+            {history.length === 0 ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full flex flex-col items-center justify-center text-center p-8"
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" 
-                      style={{ color: reading.synthesis.auraColor, backgroundColor: reading.synthesis.auraColor }} 
-                    />
-                    <span className="text-[10px] uppercase tracking-widest text-gold/60 font-bold">
-                      {new Date(reading.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                <History className="w-12 h-12 text-gold/10 mb-4" />
+                <p className="text-paper/30 text-sm font-light italic">No past readings found. Your journey begins with the first look.</p>
+              </motion.div>
+            ) : (
+              history.map((reading, index) => (
+                <motion.div 
+                  key={reading.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                  className="group relative glass rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
+                  onClick={() => onSelect(reading)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" 
+                        style={{ color: reading.synthesis.auraColor, backgroundColor: reading.synthesis.auraColor }} 
+                      />
+                      <span className="text-[10px] uppercase tracking-widest text-gold/60 font-bold">
+                        {new Date(reading.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(reading.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-paper/20"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <h3 className="text-gold font-serif italic text-sm mb-1">{reading.synthesis.coreArchetype}</h3>
+                  <p className="text-xs font-serif italic text-paper/40 line-clamp-2 leading-relaxed">
+                    {reading.synthesis.soulSignature}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/20">
+                      {reading.metrics.ayurveda.dominantDosha}
+                    </span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-paper/40 border border-white/10">
+                      {reading.metrics.emotions.dominant}
                     </span>
                   </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(reading.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-paper/20"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <h3 className="text-gold font-serif italic text-sm mb-1">{reading.synthesis.coreArchetype}</h3>
-                <p className="text-xs font-serif italic text-paper/40 line-clamp-2 leading-relaxed">
-                  {reading.synthesis.soulSignature}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/20">
-                    {reading.metrics.ayurveda.dominantDosha}
-                  </span>
-                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-paper/40 border border-white/10">
-                    {reading.metrics.emotions.dominant}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </>

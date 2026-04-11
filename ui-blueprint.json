@@ -1,0 +1,103 @@
+{
+  "appName": "Olari's Resonance",
+  "theme": {
+    "colors": {
+      "background": "#050505",
+      "paper": "#f5f2ed",
+      "gold": "#c5a059",
+      "ink": "#1a1a1a",
+      "shadow": "#94a3b8",
+      "auraDefault": "#c5a059"
+    },
+    "typography": {
+      "serif": "Cormorant Garamond, serif",
+      "sans": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "borderRadius": "32px",
+    "spacing": {
+      "container": "max-w-7xl mx-auto",
+      "sectionGap": "space-y-16"
+    }
+  },
+  "layout": {
+    "root": "flex flex-col min-h-screen bg-background text-paper",
+    "header": {
+      "component": "AppHeader",
+      "elements": ["Logo", "HistoryButton", "InfoButton"]
+    },
+    "main": "flex-grow",
+    "footer": "fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg z-[100]"
+  },
+  "phases": [
+    {
+      "id": "gatekeeper",
+      "component": "PermissionsCheck",
+      "description": "Initial entry screen for hardware access",
+      "elements": [
+        { "id": "camera_perm", "icon": "Camera", "label": "Visual Resonance" },
+        { "id": "mic_perm", "icon": "Mic", "label": "Vocal Frequency" },
+        { "id": "geo_perm", "icon": "Compass", "label": "Earth Anchor" }
+      ]
+    },
+    {
+      "id": "capture",
+      "component": "CameraView",
+      "description": "Multi-step biometric capture wizard",
+      "steps": [
+        { "id": "face", "label": "Soul Mirror", "instructions": "Look Center, Up, Down, Left, Right" },
+        { "id": "palm", "label": "Life Lines", "instructions": "Present your palm to the lens" },
+        { "id": "iris", "label": "Eye of Truth", "instructions": "Bring your eye close to the circle" },
+        { "id": "voice", "label": "Sacred Word", "instructions": "Speak the words of resonance" }
+      ],
+      "ui_elements": ["VideoFeed", "ScanOverlay", "ProgressBar", "InstructionText"]
+    },
+    {
+      "id": "analysis",
+      "component": "ProcessingScreen",
+      "description": "High-energy state while AI generates reading",
+      "elements": ["PulsingLogo", "MysticalLoadingText", "AuraGlowEffect"]
+    },
+    {
+      "id": "result",
+      "component": "ReadingDisplay",
+      "description": "The 'Celestial Scroll' results interface",
+      "navigation": {
+        "type": "PillTabs",
+        "pages": [
+          "Holistic Soul Narrative",
+          "The Unseen",
+          "Sacred Rituals",
+          "Energy Map",
+          "Soul Synastry",
+          "Soul Signature",
+          "Omens & Guidance",
+          "Visionary Infographic",
+          "Physical Map",
+          "Ancient Traditions",
+          "Soul Metrics",
+          "Cosmic Alignment",
+          "Celestial Blueprint",
+          "Deep Dives"
+        ]
+      },
+      "content_area": {
+        "background": "Dynamic Aura Color",
+        "texture": "Paper Overlay",
+        "typography": "Serif Italic Headings, Sans Body",
+        "interactive_elements": [
+          "MarkdownText",
+          "3DEnergyCanvas",
+          "BirthChartSVG",
+          "DestinyCards",
+          "VoicePlaybackControls"
+        ]
+      }
+    }
+  ],
+  "interaction_model": {
+    "animations": "Framer Motion (Spring/EaseInOut)",
+    "audio": "Text-to-Speech (Google GenAI)",
+    "export": ["PDF Download", "Social Share"]
+  }
+}

@@ -127,11 +127,19 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const fWHR = faceWidth / faceHeight;
 
     // Eye Aspect Ratio (EAR)
-    const leftEyeTop = landmarks[386];
-    const leftEyeBottom = landmarks[374];
-    const leftEyeInner = landmarks[362];
-    const leftEyeOuter = landmarks[263];
-    const ear = Math.abs(leftEyeTop.y - leftEyeBottom.y) / Math.abs(leftEyeInner.x - leftEyeOuter.x);
+    const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    const leftEAR = (dist(landmarks[160], landmarks[144]) + dist(landmarks[158], landmarks[153])) / (2 * dist(landmarks[33], landmarks[133]));
+    const rightEAR = (dist(landmarks[385], landmarks[380]) + dist(landmarks[387], landmarks[373])) / (2 * dist(landmarks[362], landmarks[263]));
+    const ear = (leftEAR + rightEAR) / 2;
+
+    // Eye Slant (Angle between inner and outer corner)
+    // Positive = Upturned, Negative = Downturned
+    const slantLeft = -Math.atan2(landmarks[33].y - landmarks[133].y, landmarks[33].x - landmarks[133].x) * (180 / Math.PI);
+    const slantRight = -Math.atan2(landmarks[263].y - landmarks[362].y, landmarks[362].x - landmarks[263].x) * (180 / Math.PI);
+    const eyeSlant = (slantLeft + slantRight) / 2;
+
+    // Eye Depth (Z-coordinate relative to nose tip)
+    const eyeDepth = (Math.abs(landmarks[159].z - landmarks[1].z) + Math.abs(landmarks[386].z - landmarks[1].z)) / 2;
 
     // Dosha logic (simplified heuristic)
     let dosha: 'Vata' | 'Pitta' | 'Kapha' = 'Pitta';
@@ -160,6 +168,27 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
 
     const earProminence = Math.abs(landmarks[127].x - landmarks[234].x); // Distance from cheek edge
 
+    // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes
+    const getShape = (name: string) => blendshapes.find(c => c.categoryName === name)?.score || 0;
+    
+    // Contempt: Asymmetry in mouth corners (smile/dimple)
+    const contempt = Math.abs(getShape('mouthSmileLeft') - getShape('mouthSmileRight')) + 
+                     Math.abs(getShape('mouthDimpleLeft') - getShape('mouthDimpleRight'));
+    
+    // Disdain/Disgust: Nose sneer + upper lip up
+    const disdain = (getShape('noseSneerLeft') + getShape('noseSneerRight') + 
+                     getShape('mouthUpperUpLeft') + getShape('mouthUpperUpRight')) / 4;
+    
+    // Skepticism: Asymmetry in brow raise
+    const skepticism = Math.abs(getShape('browOuterUpLeft') - getShape('browOuterUpRight')) + 
+                       getShape('browInnerUp');
+    
+    // Fear: Eye wide + brow inner up
+    const fear = (getShape('eyeWideLeft') + getShape('eyeWideRight') + getShape('browInnerUp')) / 3;
+
+    // Micro-expression Intensity: Sum of all small facial movements
+    const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
+
     // Emotions
     const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
@@ -186,6 +215,9 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       personology: {
         eyeSpacingRatio: Math.abs(landmarks[133].x - landmarks[362].x) / faceWidth,
+        eyeAspectRatio: ear,
+        eyeDepth,
+        eyeSlant,
         lipFullness: Math.abs(landmarks[0].y - landmarks[17].y),
         foreheadAngle: landmarks[10].z < landmarks[168].z ? 'slanted' : 'vertical',
         noseProminence: song,
@@ -201,7 +233,14 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       emotions: {
         dominant: dominantEmotion,
-        scores: faResult.expressions as any
+        scores: faResult.expressions as any,
+        nuanced: {
+          contempt,
+          disdain,
+          skepticism,
+          fear,
+          microExpressionIntensity
+        }
       },
       granularData,
       age: faResult.age,
@@ -209,6 +248,23 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     };
   } catch (error) {
     console.error("Error during face analysis:", error);
+    return null;
+  }
+}
+
+export async function getLandmarks(media: HTMLVideoElement | HTMLImageElement): Promise<any[] | null> {
+  if (!faceLandmarker || !modelsLoaded) return null;
+  try {
+    let mpResult;
+    if (media instanceof HTMLVideoElement) {
+      if (media.videoWidth === 0 || media.videoHeight === 0 || media.readyState < 2) return null;
+      mpResult = faceLandmarker.detectForVideo(media, performance.now());
+    } else {
+      if (media.naturalWidth === 0 || media.naturalHeight === 0) return null;
+      mpResult = faceLandmarker.detect(media);
+    }
+    return mpResult.faceLandmarks?.[0] || null;
+  } catch (e) {
     return null;
   }
 }

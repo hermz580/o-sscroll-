@@ -1,88 +1,567 @@
-import React, { useState, useEffect, ReactNode } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, ReactNode, useRef, useMemo } from 'react';
+import ReactMarkdown, { Components } from 'react-markdown';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { ReadingResponse } from '../types';
-import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Moon, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight, Music, RefreshCw, Users, Leaf, GitBranch, Zap, Calendar, Star, History, Play, Square } from 'lucide-react';
+import { toCanvas } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { VoiceControls } from './VoiceControls';
-import { generateDailyForecast, generateDeepDive } from '../services/readingService';
+import { generateDailyForecast, generateDeepDive, generateVisionaryInfographic } from '../services/readingService';
 
-const DICTIONARY: Record<string, string> = {
-  "Mian Xiang": "Ancient Chinese face reading, mapping the face as a landscape of mountains and rivers to reveal destiny.",
-  "Ayurveda": "Traditional Indian system of medicine and life science, focusing on the balance of elemental energies (Doshas).",
-  "Kemetic": "Relating to ancient Egypt (Kemet), focusing on divine consciousness and the soul's connection to the Neters (gods).",
-  "Ori": "In Ifa tradition, the Ori is the physical and spiritual head, representing one's destiny and divine consciousness.",
-  "Dosha": "In Ayurveda, the three fundamental bodily bio-elements: Vata (wind), Pitta (fire), and Kapha (earth/water).",
-  "Prana": "The universal life force or vital energy in Hindu philosophy.",
-  "Chiromancy": "The art of reading palms to divine character, emotional capacity, and life path.",
-  "Iridology": "The study of the iris of the eye to diagnose systemic health and deep emotional holding patterns.",
-  "fWHR": "Facial Width-to-Height Ratio, a metric often correlated with testosterone exposure, drive, and assertiveness.",
-  "Life Path": "In numerology, the core number derived from your birth date, representing your life's primary mission.",
-  "Destiny Number": "In numerology, derived from your full birth name, representing your worldly goals and expression.",
-  "Soul Urge": "In numerology, derived from the vowels of your name, representing your hidden inner desires.",
-  "Kepler Astrology": "An astrological approach based on Johannes Kepler's theories of cosmic harmonics and sacred geometry.",
-  "Harmonics": "In astrology, the study of aspects based on dividing the 360-degree circle by whole numbers, revealing hidden resonances.",
-  "Neters": "Divine principles or gods in ancient Egyptian (Kemetic) spirituality.",
-  "Griot": "A West African historian, storyteller, praise singer, poet, or musician."
-};
+import { MODALITIES } from '../constants/modalities';
 
-const Tooltip = ({ text, children }: { text: string, children: ReactNode }) => {
+const Tooltip = ({ modalityId, term, definitions, children }: { modalityId: string, term: string, definitions?: Record<string, string>, children: ReactNode }) => {
+  const modality = MODALITIES[modalityId];
+  
+  // Case-insensitive lookup for definitions
+  const findDefinition = (term: string, defs?: Record<string, string>) => {
+    if (!defs) return null;
+    if (defs[term]) return defs[term];
+    
+    const lowerTerm = term.toLowerCase();
+    const key = Object.keys(defs).find(k => k.toLowerCase() === lowerTerm);
+    return key ? defs[key] : null;
+  };
+
+  const definition = findDefinition(term, definitions);
+  
+  if (!modality && !definition) {
+    return <span className="text-gold/90">{children}</span>;
+  }
+
   return (
     <span className="group relative inline-block cursor-help border-b border-gold/30 hover:border-gold transition-colors">
-      <span className="text-gold/90">{children}</span>
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-[#1a1a1a] text-paper text-xs rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-gold/20 font-sans leading-normal">
-        {text}
+      <span className={`${modality?.color || 'text-gold'} font-medium`}>{children}</span>
+      <span aria-hidden="true" className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[85vw] sm:w-80 p-5 bg-[#1a1a1a]/98 backdrop-blur-xl text-paper text-sm rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-gold/20 font-sans leading-relaxed scale-95 group-hover:scale-100 origin-bottom">
+        {modality && (
+          <span className="block text-[10px] uppercase tracking-[0.2em] text-gold/60 mb-2 font-semibold">{modality.name}</span>
+        )}
+        {definition ? (
+          <span className="block mb-3 text-paper/90 font-medium italic leading-snug">"{definition}"</span>
+        ) : modality ? (
+          <span className="block mb-3">{modality.description}</span>
+        ) : null}
+        {modality && (
+          <span className="block text-[10px] italic text-paper/40 border-t border-gold/10 pt-2 mt-2">{modality.vibe}</span>
+        )}
       </span>
     </span>
   );
 };
 
-const renderTextWithTooltips = (text: string) => {
-  if (typeof text !== 'string') return text;
-  const keys = Object.keys(DICTIONARY).sort((a, b) => b.length - a.length);
-  const regex = new RegExp(`\\b(${keys.join('|')})\\b`, 'gi');
+const WORD_COLOR_BANK: Record<string, string> = {
+  // Mystical / Spiritual (Purple/Indigo)
+  soul: '#a78bfa', spirit: '#a78bfa', universe: '#a78bfa', cosmic: '#a78bfa', destiny: '#a78bfa', 
+  fate: '#a78bfa', aura: '#a78bfa', energy: '#a78bfa', divine: '#a78bfa', sacred: '#a78bfa', 
+  mystic: '#a78bfa', oracle: '#a78bfa', unseen: '#a78bfa', ethereal: '#a78bfa', astral: '#a78bfa', 
+  karma: '#a78bfa', chakra: '#a78bfa', journey: '#a78bfa', path: '#a78bfa', resonance: '#a78bfa',
+  vibration: '#a78bfa', frequency: '#a78bfa', dimension: '#a78bfa', portal: '#a78bfa',
   
-  const parts = [];
-  let lastIndex = 0;
-  let match;
+  // Action / Power (Red/Orange)
+  power: '#f87171', force: '#f87171', action: '#f87171', rise: '#f87171', conquer: '#f87171', 
+  bold: '#f87171', fire: '#f87171', passion: '#f87171', strength: '#f87171', courage: '#f87171', 
+  dynamic: '#f87171', spark: '#f87171', warrior: '#f87171', blood: '#f87171', drive: '#f87171',
+  will: '#f87171', command: '#f87171', impact: '#f87171',
   
-  while ((match = regex.exec(text)) !== null) {
-    parts.push(text.slice(lastIndex, match.index));
-    const matchedWord = match[0];
-    const key = keys.find(k => k.toLowerCase() === matchedWord.toLowerCase()) || matchedWord;
-    parts.push(
-      <Tooltip key={match.index} text={DICTIONARY[key]}>
-        {matchedWord}
-      </Tooltip>
-    );
-    lastIndex = regex.lastIndex;
-  }
-  parts.push(text.slice(lastIndex));
-  return parts;
+  // Wisdom / Mind (Blue/Teal)
+  wisdom: '#38bdf8', mind: '#38bdf8', thought: '#38bdf8', clarity: '#38bdf8', insight: '#38bdf8', 
+  truth: '#38bdf8', knowledge: '#38bdf8', deep: '#38bdf8', flow: '#38bdf8', water: '#38bdf8', 
+  intuition: '#38bdf8', focus: '#38bdf8', vision: '#38bdf8', dream: '#38bdf8', logic: '#38bdf8',
+  reason: '#38bdf8', intellect: '#38bdf8', awareness: '#38bdf8',
+  
+  // Earth / Growth (Green/Olive)
+  earth: '#34d399', ground: '#34d399', root: '#34d399', grow: '#34d399', nature: '#34d399', 
+  heal: '#34d399', balance: '#34d399', steady: '#34d399', calm: '#34d399', peace: '#34d399', 
+  life: '#34d399', tree: '#34d399', seed: '#34d399', anchor: '#34d399', solid: '#34d399',
+  foundation: '#34d399', organic: '#34d399',
+  
+  // Light / Joy (Gold/Yellow)
+  light: '#fbbf24', joy: '#fbbf24', sun: '#fbbf24', star: '#fbbf24', bright: '#fbbf24', 
+  shine: '#fbbf24', radiant: '#fbbf24', gold: '#fbbf24', warm: '#fbbf24', illuminate: '#fbbf24', 
+  dawn: '#fbbf24', hope: '#fbbf24', glory: '#fbbf24', bliss: '#fbbf24',
+  
+  // Dark / Mystery (Dark Gray/Silver)
+  dark: '#94a3b8', shadow: '#94a3b8', night: '#94a3b8', moon: '#94a3b8', hidden: '#94a3b8', 
+  secret: '#94a3b8', void: '#94a3b8', mystery: '#94a3b8', depth: '#94a3b8', silence: '#94a3b8',
+  
+  // Love / Emotion (Pink/Rose)
+  love: '#fb7185', heart: '#fb7185', feel: '#fb7185', emotion: '#fb7185', care: '#fb7185', 
+  compassion: '#fb7185', embrace: '#fb7185', desire: '#fb7185', soft: '#fb7185', tender: '#fb7185',
+  kindness: '#fb7185', empathy: '#fb7185'
 };
 
-import { generateDailyForecast, generateDeepDive } from '../services/readingService';
+const colorizeText = (text: string) => {
+  const parts = text.split(/(\s+)/g);
+  return parts.map((part, i) => {
+    if (!part.trim()) return part;
+    
+    const cleanWord = part.toLowerCase().replace(/[^\w]/g, '');
+    const color = WORD_COLOR_BANK[cleanWord];
+    
+    return (
+      <span 
+        key={i} 
+        className="reading-word transition-colors duration-300" 
+        style={color ? { '--word-color': color } as React.CSSProperties : undefined}
+      >
+        {part}
+      </span>
+    );
+  });
+};
+
+const EnergyField: React.FC<{ color: string }> = ({ color }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let time = 0;
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      if (parent) {
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+      }
+    };
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      time += 0.01;
+
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = Math.min(canvas.width, canvas.height) * 0.3;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3;
+
+      // Draw Torus-like field
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * Math.PI * 2 + time;
+        const x = centerX + Math.cos(angle) * radius * Math.sin(time * 0.5);
+        const y = centerY + Math.sin(angle) * radius;
+
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radius, radius * Math.abs(Math.sin(time + i)), angle, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Draw particles
+      ctx.globalAlpha = 0.5;
+      for (let i = 0; i < 50; i++) {
+        const pAngle = (i / 50) * Math.PI * 2 + time * 2;
+        const pRadius = radius * (1 + Math.sin(time + i) * 0.2);
+        const px = centerX + Math.cos(pAngle) * pRadius;
+        const py = centerY + Math.sin(pAngle) * pRadius;
+
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [color]);
+
+  return <canvas ref={canvasRef} className="w-full h-full" />;
+};
+
+const processChildren = (children: React.ReactNode): React.ReactNode => {
+  return React.Children.map(children, child => {
+    if (typeof child === 'string') {
+      return colorizeText(child);
+    }
+    if (React.isValidElement(child)) {
+      const element = child as React.ReactElement<any>;
+      return React.cloneElement(element, {
+        ...element.props,
+        children: element.props.children ? processChildren(element.props.children) : undefined
+      });
+    }
+    return child;
+  });
+};
+
+const simpleMarkdownComponents: Components = {
+  p: ({children}) => <p className="mb-6">{processChildren(children)}</p>
+};
+
+const MemoizedMarkdown = React.memo(({ content, components }: { content: string, components: Components }) => (
+  <ReactMarkdown components={components}>
+    {content}
+  </ReactMarkdown>
+));
+
+const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
+  const [openId, setOpenId] = useState<string | null>('mianXiang');
+
+  const traditionsList = [
+    { id: 'mianXiang', name: 'Mian Xiang (Chinese)', icon: <Brain className="w-5 h-5" />, content: reading.traditionBreakdown?.mianXiang },
+    { id: 'ayurveda', name: 'Ayurveda (Indian)', icon: <Wind className="w-5 h-5" />, content: reading.traditionBreakdown?.ayurveda },
+    { id: 'kemetic', name: 'Kemetic (African)', icon: <Sun className="w-5 h-5" />, content: reading.traditionBreakdown?.kemetic },
+    { id: 'western', name: 'Personology (Western)', icon: <User className="w-5 h-5" />, content: reading.traditionBreakdown?.western },
+    { id: 'ancestral', name: 'Ifa / Ninso (Ancestral)', icon: <Sparkles className="w-5 h-5" />, content: reading.traditionBreakdown?.ancestral },
+    { id: 'gwansang', name: 'Gwansang (Korean)', icon: <Compass className="w-5 h-5" />, content: reading.traditionBreakdown?.gwansang },
+    { id: 'tibetan', name: 'Tibetan Physiognomy', icon: <Eye className="w-5 h-5" />, content: reading.traditionBreakdown?.tibetan },
+    { id: 'firasa', name: 'Firasa (Sufi/Islamic)', icon: <Moon className="w-5 h-5" />, content: reading.traditionBreakdown?.firasa },
+    { id: 'mayan', name: 'Mayan Tzolkin', icon: <Calendar className="w-5 h-5" />, content: reading.traditionBreakdown?.mayan },
+    { id: 'celtic', name: 'Celtic Tree Wisdom', icon: <Leaf className="w-5 h-5" />, content: reading.traditionBreakdown?.celtic },
+    { id: 'kabbalah', name: 'Kabbalistic Sefirot', icon: <GitBranch className="w-5 h-5" />, content: reading.traditionBreakdown?.kabbalah },
+    { id: 'humanDesign', name: 'Human Design / Gene Keys', icon: <Zap className="w-5 h-5" />, content: reading.traditionBreakdown?.humanDesign },
+    ...(reading.traditionBreakdown?.palmistry ? [{ id: 'palmistry', name: 'Chiromancy (Palmistry)', icon: <Hand className="w-5 h-5" />, content: reading.traditionBreakdown.palmistry }] : []),
+    ...(reading.traditionBreakdown?.iridology ? [{ id: 'iridology', name: 'Iridology', icon: <Eye className="w-5 h-5" />, content: reading.traditionBreakdown.iridology }] : [])
+  ].filter(t => t.content);
+
+  return (
+    <div className="space-y-4">
+      {traditionsList.map((tradition) => (
+        <div key={tradition.id} className="rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 overflow-hidden transition-all duration-300">
+          <button
+            onClick={() => setOpenId(openId === tradition.id ? null : tradition.id)}
+            className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-gold">{tradition.icon}</div>
+              <h3 className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              {openId === tradition.id && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <AudioTargetOrb text={`${tradition.name}. ${tradition.content}`} color="#b0c6f9" label="Read" />
+                </div>
+              )}
+              {openId === tradition.id ? (
+                <ChevronUp className="w-5 h-5 text-[#1a1a1a]/40" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-[#1a1a1a]/40" />
+              )}
+            </div>
+          </button>
+          <AnimatePresence>
+            {openId === tradition.id && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="p-6 pt-0 border-t border-[#1a1a1a]/5">
+                  <div className="markdown-body text-[#1a1a1a]/80 text-base leading-relaxed font-serif">
+                    <MemoizedMarkdown
+                      components={simpleMarkdownComponents}
+                      content={tradition.content!}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+const adjustColorForContrast = (hex: string, backgroundIsLight: boolean = true) => {
+  if (!hex || !hex.startsWith('#')) return '#c5a059'; // fallback gold
+  
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#c5a059';
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  if (backgroundIsLight) {
+    if (luminance > 0.6) {
+      r = Math.floor(r * 0.5);
+      g = Math.floor(g * 0.5);
+      b = Math.floor(b * 0.5);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+  } else {
+    if (luminance < 0.4) {
+      r = Math.floor(r + (255 - r) * 0.6);
+      g = Math.floor(g + (255 - g) * 0.6);
+      b = Math.floor(b + (255 - b) * 0.6);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+  }
+  return hex;
+};
+
+const getTextColorForBackground = (hex: string) => {
+  if (!hex || !hex.startsWith('#')) return '#f5f2ed';
+  
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#f5f2ed';
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#1a1a1a' : '#f5f2ed';
+};
+
+const AudioTargetOrb = ({ text, color, label }: { text: string, color: string, label?: string }) => {
+  return (
+    <div 
+      className="audio-dropzone relative flex items-center justify-center w-12 h-12 rounded-full border border-dashed transition-all duration-300 group cursor-pointer"
+      style={{ borderColor: `${color}40` }}
+      data-audio-text={text}
+      data-audio-color={color}
+      title="Drag the Play button here to read this section"
+    >
+      <div className="w-4 h-4 rounded-full animate-pulse shadow-lg" style={{ backgroundColor: color, boxShadow: `0 0 15px ${color}` }} />
+      {label && <span className="absolute -bottom-6 text-[10px] uppercase tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50" style={{ color }}>{label}</span>}
+    </div>
+  );
+};
+
+const DraggablePlayButton = ({ defaultText, defaultColor }: { defaultText: string, defaultColor: string }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeTarget, setActiveTarget] = useState({ text: defaultText, color: defaultColor });
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dragControls = useDragControls();
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+    } else {
+      const utterance = new SpeechSynthesisUtterance(activeTarget.text);
+      utterance.rate = playbackRate;
+      utterance.onend = () => setIsPlaying(false);
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+    }
+  };
+
+  const cyclePlaybackRate = () => {
+    const nextRate = playbackRate === 1 ? 1.25 : playbackRate === 1.25 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    setPlaybackRate(nextRate);
+    if (isPlaying) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(activeTarget.text);
+      utterance.rate = nextRate;
+      utterance.onend = () => setIsPlaying(false);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  useEffect(() => {
+    return () => window.speechSynthesis.cancel();
+  }, []);
+
+  const handleDrag = () => {
+    if (!buttonRef.current) return;
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+    const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+
+    const dropzones = document.querySelectorAll('.audio-dropzone');
+    let closest: Element | null = null;
+    let minDistance = 120; // Snap radius
+
+    dropzones.forEach(zone => {
+      const rect = zone.getBoundingClientRect();
+      const zoneCenterX = rect.left + rect.width / 2;
+      const zoneCenterY = rect.top + rect.height / 2;
+      const distance = Math.hypot(buttonCenterX - zoneCenterX, buttonCenterY - zoneCenterY);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = zone;
+      }
+    });
+
+    if (closest) {
+      const text = closest.getAttribute('data-audio-text');
+      const color = closest.getAttribute('data-audio-color');
+      if (text && color && activeTarget.text !== text) {
+        setActiveTarget({ text, color });
+        if (isPlaying) {
+          window.speechSynthesis.cancel();
+          setIsPlaying(false);
+        }
+      }
+    }
+  };
+
+  return (
+    <motion.div
+      drag
+      dragControls={dragControls}
+      dragMomentum={false}
+      onDrag={handleDrag}
+      className="fixed z-[9999] cursor-grab active:cursor-grabbing flex flex-col items-center gap-2"
+      style={{ bottom: 16, right: 16 }}
+    >
+      <button
+        onClick={cyclePlaybackRate}
+        className="w-8 h-8 rounded-full bg-[#1a1a1a] text-gold text-[10px] font-bold shadow-lg border border-gold/20 hover:scale-110 transition-transform sm:w-10 sm:h-10 sm:text-xs"
+        title="Change Playback Speed"
+      >
+        {playbackRate}x
+      </button>
+      <button
+        ref={buttonRef}
+        onClick={togglePlay}
+        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center border-2 hover:scale-105 transition-all duration-300"
+        style={{ 
+          backgroundColor: '#1a1a1a',
+          borderColor: activeTarget.color,
+          boxShadow: `0 10px 30px ${activeTarget.color}60`,
+        }}
+      >
+        {isPlaying ? <Square className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: activeTarget.color }} /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-1" style={{ color: activeTarget.color }} />}
+      </button>
+    </motion.div>
+  );
+};
 
 interface ReadingDisplayProps {
   reading: ReadingResponse;
   onReset: () => void;
+  onAskQuestion: (question: string) => Promise<void>;
+  isAskingQuestion: boolean;
 }
 
-export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset }) => {
+export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset, onAskQuestion, isAskingQuestion }) => {
+  const auraHex = reading.synthesis?.auraColor?.startsWith('#') ? reading.synthesis.auraColor : '#c5a059';
+  const readableAuraColorLightBg = adjustColorForContrast(auraHex, true);
+  const readableAuraColorDarkBg = adjustColorForContrast(auraHex, false);
+  const textColorForOrb = getTextColorForBackground(auraHex);
+
+  const markdownComponents: Components = useMemo(() => ({
+    p: ({children}) => <p className="mb-6">{processChildren(children)}</p>,
+    a: ({href, children}) => {
+      if (href && (href.startsWith('http') || href.startsWith('mailto'))) {
+        return <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">{processChildren(children)}</a>;
+      }
+      
+      // Extract the raw text content of children to use as the lookup key for definitions
+      const getRawText = (node: React.ReactNode): string => {
+        if (typeof node === 'string') return node;
+        if (typeof node === 'number') return String(node);
+        if (Array.isArray(node)) return node.map(getRawText).join('');
+        if (React.isValidElement(node)) return getRawText((node as any).props.children);
+        return '';
+      };
+
+      const term = getRawText(children);
+      
+      return (
+        <Tooltip 
+          modalityId={href || ''} 
+          term={term} 
+          definitions={reading.definitions}
+        >
+          {processChildren(children)}
+        </Tooltip>
+      );
+    }
+  }), [reading.definitions]);
+
   const [showMetrics, setShowMetrics] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [dailyForecast, setDailyForecast] = useState<string | null>(null);
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [deepDive, setDeepDive] = useState<{topic: string, content: string} | null>(null);
-  const [isLoadingDeepDive, setIsLoadingDeepDive] = useState<'love' | 'career' | null>(null);
+  const [isLoadingDeepDive, setIsLoadingDeepDive] = useState<'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma' | null>(null);
+  const [visionaryImage, setVisionaryImage] = useState<string | null>(null);
+  const [isLoadingVisionary, setIsLoadingVisionary] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [highlightedWord, setHighlightedWord] = useState<{word: string, definition: string | null} | null>(null);
+  const [question, setQuestion] = useState('');
+
+  const handleAskQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question.trim() || isAskingQuestion) return;
+    await onAskQuestion(question);
+    setQuestion('');
+  };
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setHighlightedWord(null);
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (text.length > 0 && text.length < 30 && text.split(/\s+/).length <= 3) {
+        let node = selection.anchorNode;
+        let isReadingContent = false;
+        if (node && node.nodeType === Node.TEXT_NODE) {
+          node = node.parentNode;
+        }
+        while (node) {
+          if (node.nodeType === Node.ELEMENT_NODE && (node as Element).closest('.reading-content')) {
+            isReadingContent = true;
+            break;
+          }
+          node = node.parentNode;
+        }
+
+        if (isReadingContent) {
+          const cleanWord = text.toLowerCase().replace(/[^\w\s]/g, '');
+          let definition = null;
+          
+          if (reading.definitions) {
+            const key = Object.keys(reading.definitions).find(k => k.toLowerCase() === cleanWord);
+            if (key) definition = reading.definitions[key];
+          }
+          
+          if (!definition) {
+             const modKey = Object.keys(MODALITIES).find(k => k.toLowerCase() === cleanWord);
+             if (modKey) definition = MODALITIES[modKey].description;
+          }
+
+          setHighlightedWord({ word: text, definition });
+        } else {
+          setHighlightedWord(null);
+        }
+      } else {
+        setHighlightedWord(null);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [reading.definitions]);
 
   const pages = [
-    { id: 'scroll', label: 'The Scroll' },
-    { id: 'traditions', label: 'Ancient Traditions' },
-    { id: 'metrics', label: 'Soul Metrics' },
+    { id: 'resonance', label: 'Holistic Soul Narrative' },
+    { id: 'oracle', label: 'Question the Oracle' },
+    { id: 'unseen', label: 'The Unseen' },
+    { id: 'energy', label: 'Energy Map' },
+    { id: 'synastry', label: 'Soul Synastry' },
+    { id: 'signature', label: 'Soul Signature' },
+    { id: 'omens', label: 'Omens & Guidance' },
+    { id: 'vision', label: 'Visionary Infographic' },
     { id: 'cosmic', label: 'Cosmic Alignment' },
     { id: 'deep-dives', label: 'Deep Dives' }
   ];
@@ -99,7 +578,19 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
     }
   };
 
-  const handleGetDeepDive = async (topic: 'love' | 'career') => {
+  const handleGetVisionaryImage = async () => {
+    setIsLoadingVisionary(true);
+    try {
+      const image = await generateVisionaryInfographic(reading);
+      setVisionaryImage(image);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingVisionary(false);
+    }
+  };
+
+  const handleGetDeepDive = async (topic: 'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma') => {
     setIsLoadingDeepDive(topic);
     try {
       const content = await generateDeepDive(reading, topic);
@@ -117,10 +608,15 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
     
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(scrollElement, {
-        scale: 2,
+      const canvas = await toCanvas(scrollElement, {
+        pixelRatio: 2,
         backgroundColor: '#f5f2ed',
-        useCORS: true,
+        filter: (node) => {
+          if (node.nodeType === 1 && (node as HTMLElement).dataset?.html2canvasIgnore === 'true') {
+            return false;
+          }
+          return true;
+        }
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.9);
@@ -131,7 +627,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       });
       
       pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`Olaris-Scroll-${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`Olaris-Resonance-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error("Failed to download PDF:", err);
     } finally {
@@ -140,7 +636,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
   };
 
   const handleShare = () => {
-    const text = `${reading.poeticReading}\n\nReadings from Olari's Scroll by Harp Star`;
+    const text = `${reading.poeticReading}\n\nReadings from Olari's Resonance`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -149,39 +645,708 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
     });
   };
 
-  const playableSections = [
-    {
-      id: 'poetic-reading',
-      label: 'Main Reading',
-      text: reading.poeticReading,
-      audioBase64: reading.audioBase64
-    },
-    ...(dailyForecast ? [{
-      id: 'daily-forecast',
-      label: 'Daily Forecast',
-      text: dailyForecast
-    }] : []),
-    ...(deepDive && deepDive.topic === 'love' ? [{
-      id: 'love-destiny',
-      label: 'Love Destiny',
-      text: deepDive.content
-    }] : []),
-    ...(deepDive && deepDive.topic === 'career' ? [{
-      id: 'career-destiny',
-      label: 'Career Destiny',
-      text: deepDive.content
-    }] : [])
-  ];
+  const renderPageContent = () => {
+    switch (pages[currentPage].id) {
+      case 'resonance': // The Resonance
+        return (
+          <motion.div
+            key="page-resonance"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose relative">
+              <div className="absolute top-0 right-0 z-20">
+                <AudioTargetOrb text={reading.poeticReading} color={readableAuraColorDarkBg} label="Main Reading" />
+              </div>
+              <div className="text-center mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#1a1a1a]/10">
+                <p className="text-[10px] md:text-sm uppercase tracking-[0.3em] text-gold/80 font-sans">Temporal Alignment</p>
+                <p className="text-base md:text-lg font-serif italic text-[#1a1a1a]/60 mt-2">
+                  {new Date(reading.timestamp).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <div className="text-[#1a1a1a]/90">
+                <MemoizedMarkdown
+                  components={markdownComponents}
+                  content={reading.poeticReading}
+                />
+              </div>
+            </div>
+
+            {/* Confidence & Reasoning */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+              <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20 flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Confidence Resonance</span>
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      className="text-gold/10"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeDasharray={226}
+                      strokeDashoffset={226 - (226 * (reading.confidenceScore || 85)) / 100}
+                      className="text-gold transition-all duration-1000"
+                    />
+                  </svg>
+                  <span className="absolute text-xl font-serif italic text-gold">{reading.confidenceScore || 85}%</span>
+                </div>
+              </div>
+              <div className="md:col-span-2 p-6 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2 block">Oracle's Internal Reasoning</span>
+                <p className="text-sm text-[#1a1a1a]/70 italic leading-relaxed font-serif">
+                  {reading.oracleReasoning || "The patterns of your essence are clear, yet the depths of your soul are infinite. I have chosen to focus on the resonance of your current vibration."}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        );
+      case 'oracle': // Question the Oracle
+        return (
+          <motion.div
+            key="page-oracle"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-4">Question the Oracle</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
+                Olari sees the threads of your destiny. Ask what is hidden, and the truth shall be revealed.
+              </p>
+            </div>
+
+            <form onSubmit={handleAskQuestion} className="relative max-w-2xl mx-auto">
+              <input
+                type="text"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="What do you wish to know?"
+                className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:border-gold transition-all pr-16 font-serif italic"
+                disabled={isAskingQuestion}
+              />
+              <button
+                type="submit"
+                disabled={!question.trim() || isAskingQuestion}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50"
+              >
+                {isAskingQuestion ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+              </button>
+            </form>
+
+            <div className="space-y-6 mt-12">
+              {reading.questions?.map((q, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-gold/10 space-y-4"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-gold" />
+                    </div>
+                    <p className="text-[#1a1a1a]/60 font-serif italic">{q.question}</p>
+                  </div>
+                  <div className="flex items-start gap-4 pt-4 border-t border-[#1a1a1a]/5">
+                    <div className="w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-gold" />
+                    </div>
+                    <div className="markdown-body text-lg text-[#1a1a1a]/80 leading-relaxed italic">
+                      <MemoizedMarkdown 
+                        components={simpleMarkdownComponents} 
+                        content={q.answer} 
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+              
+              {reading.questions?.length === 0 && !isAskingQuestion && (
+                <div className="text-center py-12 border border-dashed border-[#1a1a1a]/20 rounded-2xl">
+                  <p className="text-[#1a1a1a]/40 font-serif italic">The void is silent. Ask your first question.</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        );
+      case 'unseen': // The Unseen
+        return (
+          <motion.div
+            key="page-unseen"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              <AudioTargetOrb text={reading.synthesis?.theUnseen || "The unseen remains veiled for now."} color="#c5a059" label="Read Unseen" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">The Unseen Revealed</h3>
+              <p className="text-[#1a1a1a]/60 text-xs md:text-sm max-w-xl mx-auto mb-6 md:mb-8">
+                What is seen only after all physical, astrological, and numerological traits have been accounted for. The ultimate truth of your trajectory.
+              </p>
+            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 md:p-8 rounded-3xl bg-[#1a1a1a]/5 border border-gold/20 shadow-inner"
+            >
+              <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose text-center">
+                <div className="text-[#1a1a1a]/90">
+                  <MemoizedMarkdown
+                    components={simpleMarkdownComponents}
+                    content={reading.synthesis?.theUnseen || "The unseen remains veiled for now."}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        );
+      case 'signature': // Soul Signature
+        return (
+          <motion.div
+            key="page-signature"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-12 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              <AudioTargetOrb text={reading.synthesis?.soulSignature || "Your soul signature is a mystery."} color="#c5a059" label="Read Signature" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">Soul Signature</h3>
+              <p className="text-[#1a1a1a]/60 text-xs md:text-sm max-w-xl mx-auto">
+                The unique vibration of your essence as captured by the Digital Griot.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 flex flex-col items-center text-center">
+                <div 
+                  className="w-32 h-32 rounded-full mb-6 relative"
+                  style={{ 
+                    background: `radial-gradient(circle, ${auraHex} 0%, transparent 70%)`,
+                    boxShadow: `0 0 60px ${auraHex}40`
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="w-12 h-12 text-gold animate-pulse" />
+                  </div>
+                </div>
+                <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-2">Aura Resonance</h4>
+                <p className="text-2xl font-serif italic" style={{ color: readableAuraColorLightBg }}>
+                  {reading.synthesis?.auraColor || 'Radiant'}
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 flex flex-col items-center text-center justify-center">
+                <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-4">Core Archetype</h4>
+                <p className="text-4xl font-serif italic text-gold mb-4">{reading.synthesis?.coreArchetype}</p>
+                <p className="text-sm text-[#1a1a1a]/60 font-serif italic leading-relaxed">
+                  {reading.synthesis?.soulSignature}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+              <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Soul Mission</h4>
+              <p className="text-xl font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center italic">
+                "{reading.synthesis?.soulMission}"
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+              <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Ancestral Echo</h4>
+              <p className="text-lg font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center">
+                {reading.synthesis?.ancestralEcho}
+              </p>
+            </div>
+          </motion.div>
+        );
+      case 'omens': // Omens & Guidance
+        return (
+          <motion.div
+            key="page-omens"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              {dailyForecast && <AudioTargetOrb text={`Omens and Guidance. ${dailyForecast}`} color="#c5a059" label="Read Omens" />}
+            </div>
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-4">Omens & Guidance</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
+                The digital griot reads the currents of time. What signs should you look for? What warnings lie ahead?
+              </p>
+              
+              {!dailyForecast && !isLoadingForecast && (
+                <button 
+                  onClick={handleGetForecast}
+                  className="px-8 py-4 rounded-full bg-[#1a1a1a] text-gold uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all shadow-xl border border-gold/20"
+                >
+                  Reveal the Path Ahead
+                </button>
+              )}
+              
+              {isLoadingForecast && (
+                <div className="flex flex-col items-center justify-center py-12 text-gold">
+                  <Wind className="w-8 h-8 animate-spin mb-4 opacity-50" />
+                  <p className="font-serif italic text-lg animate-pulse">Consulting the winds of time...</p>
+                </div>
+              )}
+            </div>
+
+            {dailyForecast && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-gold/20 shadow-inner"
+              >
+                <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-lg leading-loose">
+                  <div className="text-[#1a1a1a]/90">
+                    <MemoizedMarkdown
+                      components={simpleMarkdownComponents}
+                      content={dailyForecast}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        );
+      case 'vision': // Visionary Infographic
+        return (
+          <motion.div
+            key="page-vision"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              {visionaryImage && <AudioTargetOrb text={`Visionary Infographic generated.`} color="#c5a059" label="Read Vision" />}
+            </div>
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-4">Visionary Infographic</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
+                A visual manifestation of your soul's blueprint, blending your image with ancient symbols and cosmic geometry.
+              </p>
+              
+              {!visionaryImage && !isLoadingVisionary && (
+                <button 
+                  onClick={handleGetVisionaryImage}
+                  className="px-8 py-4 rounded-full bg-[#1a1a1a] text-gold uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all shadow-xl border border-gold/20"
+                >
+                  Manifest Vision
+                </button>
+              )}
+              
+              {isLoadingVisionary && (
+                <div className="flex flex-col items-center justify-center py-12 text-gold">
+                  <Eye className="w-8 h-8 animate-pulse mb-4 opacity-50" />
+                  <p className="font-serif italic text-lg animate-pulse">Weaving your essence into light...</p>
+                </div>
+              )}
+            </div>
+
+            {visionaryImage && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex justify-center"
+              >
+                <div className="relative p-4 bg-[#1a1a1a] rounded-2xl shadow-2xl border border-gold/30 max-w-md w-full group">
+                  <img 
+                    src={visionaryImage} 
+                    alt="Visionary Infographic" 
+                    className="w-full h-auto rounded-xl"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-gold text-[#1a1a1a] px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                    Destiny Manifested
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = visionaryImage;
+                      link.download = `Olaris-Vision-${new Date().toISOString().split('T')[0]}.jpg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="absolute top-8 right-8 p-3 bg-black/50 hover:bg-black/80 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 shadow-xl border border-white/10"
+                    title="Download Vision"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        );
+      case 'cosmic': // Cosmic
+        return (
+          <motion.div
+            key="page-cosmic"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 relative"
+          >
+            <div className="absolute -top-12 right-0 z-20">
+              <AudioTargetOrb text={`Astrological Blueprint. Sun Sign: ${reading.cosmicAlignment?.sunSign}. Moon Sign: ${reading.cosmicAlignment?.moonSign}. Rising Sign: ${reading.cosmicAlignment?.risingSign}. Numerological Resonance. Life Path Number: ${reading.cosmicAlignment?.lifePathNumber}. Destiny Number: ${reading.cosmicAlignment?.destinyNumber}. Soul Urge Number: ${reading.cosmicAlignment?.soulUrgeNumber}.`} color="#e9c176" label="Read Cosmic" />
+            </div>
+            <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+              <h3 className="text-xl font-serif italic text-gold mb-6 flex items-center gap-2">
+                <Moon className="w-5 h-5" />
+                Astrological Blueprint
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Sun Sign</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.sunSign || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Moon Sign</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.moonSign || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Rising Sign</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.risingSign || 'Not provided'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+              <h3 className="text-xl font-serif italic text-gold mb-6 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                Numerological Codes
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Life Path</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.lifePathNumber || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Destiny</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.destinyNumber || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Soul Urge</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.soulUrgeNumber || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-[#1a1a1a]/10 pb-2">
+                  <span className="text-sm font-bold uppercase tracking-widest text-[#1a1a1a]/40">Day Vibration</span>
+                  <span className="font-serif italic text-lg text-[#1a1a1a]">{reading.cosmicAlignment?.dayVibration || 'Unknown'}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      case 'deep-dives': // Deep Dives
+        return (
+          <motion.div
+            key="page-deep-dives"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              {deepDive?.topic === 'love' && <AudioTargetOrb text={`Love Destiny: ${deepDive.content}`} color="#ef4444" label="Read Love" />}
+              {deepDive?.topic === 'career' && <AudioTargetOrb text={`Career Destiny: ${deepDive.content}`} color="#3b82f6" label="Read Career" />}
+              {deepDive?.topic === 'health' && <AudioTargetOrb text={`Health Destiny: ${deepDive.content}`} color="#22c55e" label="Read Health" />}
+              {deepDive?.topic === 'ancestral' && <AudioTargetOrb text={`Ancestral Destiny: ${deepDive.content}`} color="#f59e0b" label="Read Ancestral" />}
+              {deepDive?.topic === 'spiritual' && <AudioTargetOrb text={`Spiritual Destiny: ${deepDive.content}`} color="#a855f7" label="Read Spiritual" />}
+              {deepDive?.topic === 'shadow' && <AudioTargetOrb text={`Shadow Destiny: ${deepDive.content}`} color="#71717a" label="Read Shadow" />}
+              {deepDive?.topic === 'dharma' && <AudioTargetOrb text={`Dharma Destiny: ${deepDive.content}`} color="#eab308" label="Read Dharma" />}
+            </div>
+            {/* Oracle Actions */}
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              <button 
+                  onClick={() => handleGetDeepDive('love')}
+                  disabled={isLoadingDeepDive === 'love'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-red-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-red-500/20 shadow-lg"
+              >
+                  <Heart className="w-4 h-4" />
+                  {isLoadingDeepDive === 'love' ? 'Consulting...' : 'Love Destiny'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('career')}
+                  disabled={isLoadingDeepDive === 'career'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-blue-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-blue-500/20 shadow-lg"
+              >
+                  <Briefcase className="w-4 h-4" />
+                  {isLoadingDeepDive === 'career' ? 'Consulting...' : 'Career Destiny'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('ancestral')}
+                  disabled={isLoadingDeepDive === 'ancestral'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-amber-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-amber-500/20 shadow-lg"
+              >
+                  <History className="w-4 h-4" />
+                  {isLoadingDeepDive === 'ancestral' ? 'Consulting...' : 'Ancestral'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('spiritual')}
+                  disabled={isLoadingDeepDive === 'spiritual'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-purple-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-purple-500/20 shadow-lg"
+              >
+                  <Compass className="w-4 h-4" />
+                  {isLoadingDeepDive === 'spiritual' ? 'Consulting...' : 'Spiritual'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('shadow')}
+                  disabled={isLoadingDeepDive === 'shadow'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-zinc-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-zinc-500/20 shadow-lg"
+              >
+                  <Moon className="w-4 h-4" />
+                  {isLoadingDeepDive === 'shadow' ? 'Consulting...' : 'Shadow'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('health')}
+                  disabled={isLoadingDeepDive === 'health'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-emerald-400 text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-emerald-500/20 shadow-lg"
+              >
+                  <Activity className="w-4 h-4" />
+                  {isLoadingDeepDive === 'health' ? 'Consulting...' : 'Health'}
+              </button>
+              <button 
+                  onClick={() => handleGetDeepDive('dharma')}
+                  disabled={isLoadingDeepDive === 'dharma'}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1a1a1a] text-gold text-xs uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all disabled:opacity-50 border border-gold/20 shadow-lg"
+              >
+                  <Star className="w-4 h-4" />
+                  {isLoadingDeepDive === 'dharma' ? 'Consulting...' : 'Dharma'}
+              </button>
+            </div>
+
+            {deepDive && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 rounded-2xl shadow-lg"
+              >
+                <h4 className="text-[#1a1a1a] font-serif italic text-2xl mb-6 flex items-center gap-3">
+                  {deepDive.topic === 'love' && <Heart className="w-6 h-6 text-red-500" />}
+                  {deepDive.topic === 'career' && <Briefcase className="w-6 h-6 text-blue-500" />}
+                  {deepDive.topic === 'ancestral' && <History className="w-6 h-6 text-amber-500" />}
+                  {deepDive.topic === 'spiritual' && <Compass className="w-6 h-6 text-purple-500" />}
+                  {deepDive.topic === 'shadow' && <Moon className="w-6 h-6 text-zinc-500" />}
+                  {deepDive.topic === 'health' && <Activity className="w-6 h-6 text-emerald-500" />}
+                  {deepDive.topic === 'dharma' && <Star className="w-6 h-6 text-gold" />}
+                  
+                  {deepDive.topic === 'love' && 'Love & Relationship Destiny'}
+                  {deepDive.topic === 'career' && 'Career & Wealth Destiny'}
+                  {deepDive.topic === 'ancestral' && 'Ancestral & Lineage Wisdom'}
+                  {deepDive.topic === 'spiritual' && 'Spiritual Evolution & Purpose'}
+                  {deepDive.topic === 'shadow' && 'Shadow Work & Integration'}
+                  {deepDive.topic === 'health' && 'Holistic Health & Vitality'}
+                  {deepDive.topic === 'dharma' && 'Dharma & Life Path Mastery'}
+                </h4>
+                <div className="markdown-body text-lg text-[#1a1a1a]/80 leading-relaxed space-y-4">
+                  <div className="text-[#1a1a1a]/90">
+                    <MemoizedMarkdown
+                      components={markdownComponents}
+                      content={deepDive.content}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {!dailyForecast && !deepDive && (
+              <div className="text-center p-12 border border-dashed border-[#1a1a1a]/20 rounded-2xl">
+                <Sparkles className="w-8 h-8 text-gold/40 mx-auto mb-4" />
+                <p className="text-[#1a1a1a]/50 font-serif italic text-lg">Consult the oracle above to reveal deeper destinies and daily guidance.</p>
+              </div>
+            )}
+          </motion.div>
+        );
+      case 'energy': // Energy Map
+        return (
+          <motion.div
+            key="page-energy"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              <AudioTargetOrb text={`Energy Map. Geometric Form: ${reading.energyMap.shape}. Vibrational Texture: ${reading.energyMap.texture}. Field Interaction: ${reading.energyMap.interaction}`} color={auraHex} label="Read Energy" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-4">3D Energy Mapping</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
+                A visual representation of your soul's unique energetic geometry and vibrational signature.
+              </p>
+            </div>
+
+            <div className="relative h-80 w-full flex items-center justify-center bg-[#1a1a1a] rounded-3xl overflow-hidden shadow-2xl border border-gold/20">
+              <div className="absolute inset-0 z-10">
+                <EnergyField color={auraHex} />
+              </div>
+
+              <div className="relative z-20 flex flex-col items-center">
+                <div className="mt-8 text-center">
+                  <p className="font-mono text-xs uppercase tracking-[0.3em] mb-1" style={{ color: textColorForOrb === '#1a1a1a' ? 'rgba(26,26,26,0.7)' : '#c5a059' }}>Geometric Form</p>
+                  <p className="text-2xl font-serif italic" style={{ color: textColorForOrb }}>{reading.energyMap.shape}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+                <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Vibrational Texture</h4>
+                <p className="text-lg font-serif italic text-[#1a1a1a]/80">{reading.energyMap.texture}</p>
+              </div>
+              <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+                <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Field Interaction</h4>
+                <p className="text-sm text-[#1a1a1a]/70 leading-relaxed">{reading.energyMap.interaction}</p>
+              </div>
+            </div>
+
+
+          </motion.div>
+        );
+      case 'synastry': // Soul Synastry
+        return (
+          <motion.div
+            key="page-synastry"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8 relative"
+          >
+            <div className="absolute top-0 right-0 z-20">
+              {reading.synastry && <AudioTargetOrb text={`Soul Synastry. Compatibility Score: ${reading.synastry.compatibilityScore} percent. Shared Mission: ${reading.synastry.sharedMission}. Karmic Connection: ${reading.synastry.karmicConnection}. Potential Friction: ${reading.synastry.potentialFriction}. Growth Trajectory: ${reading.synastry.growthTrajectory}.`} color="#c5a059" label="Read Synastry" />}
+            </div>
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-4">Relationship Synastry</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
+                The intersection of two souls. How your energies weave together to form a greater whole.
+              </p>
+            </div>
+
+            {reading.synastry ? (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 text-center">
+                    <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Compatibility</h4>
+                    <p className="text-4xl font-serif italic text-gold">{reading.synastry.compatibilityScore}%</p>
+                  </div>
+                  <div className="md:col-span-2 p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+                    <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Shared Soul Mission</h4>
+                    <p className="text-lg font-serif italic text-[#1a1a1a]/80">"{reading.synastry.sharedMission}"</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="p-8 rounded-3xl bg-rose-500/5 border border-rose-500/20">
+                    <h4 className="text-xs uppercase tracking-[0.2em] text-rose-500/60 font-bold mb-4 flex items-center gap-2">
+                      <Heart className="w-4 h-4" />
+                      Karmic Connection
+                    </h4>
+                    <p className="text-sm text-[#1a1a1a]/70 leading-relaxed italic">
+                      {reading.synastry.karmicConnection}
+                    </p>
+                  </div>
+                  <div className="p-8 rounded-3xl bg-amber-500/5 border border-amber-500/20">
+                    <h4 className="text-xs uppercase tracking-[0.2em] text-amber-500/60 font-bold mb-4 flex items-center gap-2">
+                      <Flame className="w-4 h-4" />
+                      Potential Friction
+                    </h4>
+                    <p className="text-sm text-[#1a1a1a]/70 leading-relaxed italic">
+                      {reading.synastry.potentialFriction}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
+                  <h4 className="text-xs uppercase tracking-[0.2em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Growth Trajectory</h4>
+                  <p className="text-lg font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center">
+                    {reading.synastry.growthTrajectory}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-12 border border-dashed border-[#1a1a1a]/20 rounded-2xl">
+                <Users className="w-8 h-8 text-gold/40 mx-auto mb-4" />
+                <p className="text-[#1a1a1a]/50 font-serif italic text-lg">
+                  Synastry is revealed only when two faces are presented to the oracle. 
+                  <br />
+                  <span className="text-xs uppercase tracking-widest font-bold mt-4 block">Single Soul Reading Active</span>
+                </p>
+              </div>
+            )}
+          </motion.div>
+        );
+      default:
+        return null;
+    }
+  };
+
+
+  const calculateAge = (birthDate: string) => {
+    const today = new Date();
+    const birthDateObj = new Date(birthDate);
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDateObj.getDate())) {
+        age--;
+    }
+    return age;
+  };
+
+  const actualAge = reading.userInfo?.birthDate ? calculateAge(reading.userInfo.birthDate) : null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto mt-12 space-y-16 pb-24"
+      className="max-w-7xl mx-auto mt-12 space-y-16 pb-24"
     >
-      {/* The Scroll Container */}
+      <DraggablePlayButton defaultText={reading.poeticReading} defaultColor={readableAuraColorDarkBg} />
+
+      {/* Page Navigation Tabs */}
+      <div className="flex justify-start sm:justify-center mb-8 overflow-x-auto px-4 pb-4 no-scrollbar">
+        <div className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap">
+          {pages.map((page, index) => (
+            <button
+              key={page.id}
+              onClick={() => setCurrentPage(index)}
+              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                currentPage === index 
+                  ? 'bg-[#1a1a1a] text-gold shadow-md' 
+                  : 'text-[#1a1a1a]/50 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5'
+              }`}
+            >
+              {page.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* The Resonance Container */}
       <section className="relative">
-        {/* Scroll Top Handle */}
+        {/* Resonance Top Handle */}
         <div className="h-12 bg-[#1a1a1a] rounded-t-full border-b border-gold/20 mx-4 relative z-10 shadow-lg flex items-center justify-center">
              <div className="w-1/3 h-1 bg-gold/20 rounded-full" />
         </div>
@@ -192,34 +1357,37 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
           initial={{ height: 0 }}
           animate={{ height: 'auto' }}
           transition={{ duration: 1.5, ease: "easeInOut" }}
-          className="relative bg-[#f5f2ed] text-[#1a1a1a] overflow-hidden mx-8 shadow-[0_0_50px_rgba(197,160,89,0.1)]"
+          className="relative overflow-hidden mx-8 shadow-[0_0_50px_rgba(197,160,89,0.1)]"
           style={{ 
-            boxShadow: `0 0 80px ${reading.synthesis?.auraColor || '#c5a059'}20` 
+            backgroundColor: '#f5f2ed',
+            backgroundImage: `linear-gradient(135deg, transparent 0%, ${auraHex}15 100%)`,
+            boxShadow: `0 0 100px ${auraHex}30`,
+            color: '#1a1a1a' 
           }}
         >
             {/* Paper Texture Overlay */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
+            <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] mix-blend-multiply" />
             
-            <div className="p-12 md:p-16">
-                <div className="flex flex-col items-center mb-12 border-b border-[#1a1a1a]/10 pb-8 gap-4">
-                  <div className="flex items-center justify-between w-full">
+            <div className="p-6 md:p-16 relative z-10">
+                <div className="flex flex-col items-center mb-8 md:mb-12 border-b border-[#1a1a1a]/10 pb-6 md:pb-8 gap-4">
+                  <div className="flex flex-col md:flex-row items-center justify-between w-full gap-6 md:gap-0">
                     <div className="flex items-center gap-4">
-                      <ScrollText className="w-6 h-6 text-gold" />
-                      <h2 className="text-3xl font-serif italic text-[#1a1a1a]">The Griot's Scroll</h2>
+                      <Sparkles className="w-6 h-6 text-gold animate-pulse" />
+                      <h2 className="text-2xl md:text-4xl font-serif italic text-[#1a1a1a]">The Holistic Soul Narrative</h2>
                     </div>
-                    <div className="flex items-center gap-4" data-html2canvas-ignore="true">
-                      <VoiceControls sections={playableSections} autoPlay={true} />
+                    <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto justify-center md:justify-end" data-html2canvas-ignore="true">
+                      {/* Voice controls are now handled by a sticky/fixed container below for better mobile UX */}
                       <button 
                           onClick={handleDownload}
                           disabled={isDownloading}
-                          className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all disabled:opacity-50"
                       >
                           <Download className="w-3 h-3" />
                           {isDownloading ? 'Saving...' : 'Save PDF'}
                       </button>
                       <button 
                           onClick={handleShare}
-                          className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all"
                       >
                           <Share2 className="w-3 h-3" />
                           {copied ? 'Copied' : 'Share'}
@@ -229,121 +1397,97 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                   
                   <div className="text-center mt-4">
                     <span className="text-[10px] uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold block mb-2">Soul Signature</span>
-                    <h3 className="text-2xl font-serif italic text-gold" style={{ color: reading.synthesis?.auraColor || '#c5a059' }}>
+                    <h3 className="text-2xl font-serif italic" style={{ color: readableAuraColorLightBg }}>
                       "{reading.synthesis?.soulSignature || 'Radiant Soul'}"
                     </h3>
                   </div>
                 </div>
 
-                <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl leading-loose">
-                  {dailyForecast && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mb-8 p-6 bg-gold/10 border border-gold/30 rounded-2xl"
-                    >
-                      <h4 className="text-gold font-serif italic mb-2 flex items-center gap-2">
-                        <Sun className="w-5 h-5" />
-                        Today's Energy
-                      </h4>
-                      <p className="text-lg text-[#1a1a1a]/80 italic">"{dailyForecast}"</p>
-                    </motion.div>
-                  )}
-                  {deepDive && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mb-8 p-6 bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 rounded-2xl"
-                    >
-                      <h4 className="text-[#1a1a1a] font-serif italic mb-4 flex items-center gap-2">
-                        {deepDive.topic === 'love' ? <Heart className="w-5 h-5 text-red-500" /> : <Briefcase className="w-5 h-5 text-blue-500" />}
-                        {deepDive.topic === 'love' ? 'Love & Relationship Destiny' : 'Career & Wealth Destiny'}
-                      </h4>
-                      <div className="text-lg text-[#1a1a1a]/80 leading-relaxed space-y-4">
-                        <ReactMarkdown>{deepDive.content}</ReactMarkdown>
-                      </div>
-                    </motion.div>
-                  )}
-                  <ReactMarkdown
-                    components={{
-                      p: ({node, children}) => {
-                        return <p className="mb-6">{React.Children.map(children, child => {
-                          if (typeof child === 'string') {
-                            return renderTextWithTooltips(child);
-                          }
-                          return child;
-                        })}</p>;
-                      }
-                    }}
-                  >
-                    {reading.poeticReading}
-                  </ReactMarkdown>
-                </div>
+                <AnimatePresence mode="wait">
+                  {renderPageContent()}
+                </AnimatePresence>
             </div>
         </motion.div>
 
-        {/* Scroll Bottom Handle */}
+        {/* Resonance Bottom Handle */}
         <motion.div 
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 1.5, ease: "easeInOut" }}
-            className="h-16 bg-[#1a1a1a] rounded-b-full border-t border-gold/20 mx-4 relative z-10 shadow-lg flex items-center justify-center"
+            className="h-20 bg-[#1a1a1a] rounded-b-full border-t border-gold/20 mx-4 relative z-10 shadow-lg flex items-center justify-between px-12"
+            style={{ 
+              boxShadow: `0 10px 40px ${auraHex}20` 
+            }}
         >
-             <div className="w-1/3 h-1 bg-gold/20 rounded-full" />
+             <button 
+                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                disabled={currentPage === 0}
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+             >
+                <ChevronLeft className="w-6 h-6" />
+             </button>
+             
+             <div className="flex flex-col items-center gap-2">
+                <div className="flex gap-1">
+                  {pages.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-1 rounded-full transition-all duration-300 ${idx === currentPage ? 'w-8 bg-gold' : 'w-2 bg-gold/20'}`}
+                    />
+                  ))}
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-gold/60">
+                  {pages[currentPage].label} ({currentPage + 1}/{pages.length})
+                </p>
+             </div>
+
+             <button 
+                onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
+                disabled={currentPage === pages.length - 1}
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+             >
+                <ChevronRight className="w-6 h-6" />
+             </button>
         </motion.div>
       </section>
 
-      {/* Raw Metrics Toggle */}
-      <div className="glass rounded-3xl overflow-hidden">
-        <button 
-          onClick={() => setShowMetrics(!showMetrics)}
-          className="w-full p-6 flex items-center justify-between text-gold/60 hover:text-gold transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <BarChart3 className="w-4 h-4" />
-            <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Geometric Data Points</span>
-          </div>
-          {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        
+      {/* Sticky/Fixed Voice Controls */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md md:max-w-lg flex flex-col items-center gap-4" data-html2canvas-ignore="true">
         <AnimatePresence>
-          {showMetrics && (
+          {highlightedWord && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-6 pb-8"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="w-full bg-[#1a1a1a]/95 backdrop-blur-xl border border-gold/30 rounded-2xl p-4 shadow-2xl flex items-start gap-4"
             >
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-white/5">
-                <MetricItem label="Three Stops" value={reading.metrics.threeStops.ratio} />
-                <MetricItem label="fWHR" value={reading.metrics.ayurveda.fWHR.toFixed(2)} />
-                <MetricItem label="Eye Aspect" value={reading.metrics.ayurveda.eyeAspectRatio.toFixed(2)} />
-                <MetricItem label="Lip Fullness" value={reading.metrics.personology.lipFullness.toFixed(3)} />
-                <MetricItem label="Forehead" value={reading.metrics.personology.foreheadAngle} />
-                <MetricItem label="Dominant" value={reading.metrics.emotions.dominant} />
-                <MetricItem label="Apparent Age" value={Math.round(reading.metrics.age).toString()} />
-                <MetricItem label="Gender" value={reading.metrics.gender} />
-                <MetricItem label="Morpho Zone" value={reading.metrics.morphopsychology.zoneDominance} />
-                <MetricItem label="Dilation" value={reading.metrics.morphopsychology.dilationRatio.toFixed(2)} />
-                <MetricItem label="Ear Level" value={reading.metrics.gwansang.earLevel} />
-                <MetricItem label="Jaw Strength" value={reading.metrics.personology.jawlineStrong ? "Strong" : "Soft"} />
+              <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                <BookOpen className="w-5 h-5 text-gold" />
               </div>
-              
-              <div className="mt-8 pt-6 border-t border-white/5">
-                <h4 className="text-gold font-serif italic text-lg mb-4">Granular Landmark Coordinates (x, y, z)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <CoordinateItem label="Nose Tip" coords={reading.metrics.granularData.noseTip} />
-                  <CoordinateItem label="Left Eye" coords={reading.metrics.granularData.leftEye} />
-                  <CoordinateItem label="Right Eye" coords={reading.metrics.granularData.rightEye} />
-                  <CoordinateItem label="Mouth Center" coords={reading.metrics.granularData.mouthCenter} />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-gold font-serif italic text-lg">{highlightedWord.word}</h4>
+                  <button 
+                    onClick={() => {
+                      const utterance = new SpeechSynthesisUtterance(highlightedWord.word);
+                      window.speechSynthesis.speak(utterance);
+                    }}
+                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors"
+                    title="Play word"
+                  >
+                    <Play className="w-3 h-3" />
+                  </button>
                 </div>
+                <p className="text-paper/80 text-sm leading-relaxed">
+                  {highlightedWord.definition || "A term of mystical significance, its meaning woven into the fabric of your reading."}
+                </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center pb-24">
         <button
           onClick={onReset}
           className="px-12 py-4 border border-gold/30 rounded-full text-gold/60 hover:text-gold hover:border-gold transition-all uppercase tracking-widest text-xs font-bold"
@@ -357,8 +1501,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
 const MetricItem = ({ label, value }: { label: string, value: string }) => (
   <div className="flex flex-col gap-1">
-    <span className="text-[9px] uppercase tracking-widest text-paper/30 font-bold">{label}</span>
-    <span className="text-sm font-mono text-gold/80">{value}</span>
+    <span className="text-[8px] md:text-[9px] uppercase tracking-widest text-paper/30 font-bold">{label}</span>
+    <span className="text-xs md:text-sm font-mono text-gold/80">{value}</span>
   </div>
 );
 
@@ -369,33 +1513,4 @@ const CoordinateItem = ({ label, coords }: { label: string, coords: { x: number,
       x: {coords.x.toFixed(3)}, y: {coords.y.toFixed(3)}, z: {coords.z.toFixed(3)}
     </span>
   </div>
-);
-
-const FeatureCard = ({ title, icon, content }: { title: string, icon: React.ReactNode, content: string }) => (
-  <div className="p-6 glass rounded-2xl border border-white/5 hover:border-gold/20 transition-colors">
-    <div className="flex items-center gap-3 text-gold mb-3">
-      {icon}
-      <h4 className="font-serif italic text-lg">{title}</h4>
-    </div>
-    <p className="text-sm leading-relaxed text-paper/70 font-light">
-      {renderTextWithTooltips(content)}
-    </p>
-  </div>
-);
-
-const TraditionCard = ({ title, icon, content, delay }: { title: string, icon: React.ReactNode, content: string, delay: number }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ delay }}
-    className="p-8 glass rounded-3xl flex flex-col gap-6"
-  >
-    <div className="flex items-center gap-3 text-gold">
-      {icon}
-      <h3 className="font-serif italic text-xl">{title}</h3>
-    </div>
-    <p className="text-sm leading-relaxed text-paper/70 font-light italic">
-      {renderTextWithTooltips(content)}
-    </p>
-  </motion.div>
 );

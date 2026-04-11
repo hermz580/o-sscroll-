@@ -23,7 +23,7 @@ export function MysticalLoader() {
   }, []);
 
   return (
-    <div className="absolute inset-0 bg-stone/80 dark:bg-charcoal/80 backdrop-blur-md flex flex-col items-center justify-center z-50 rounded-3xl overflow-hidden">
+    <div className="absolute inset-0 bg-ink/80 backdrop-blur-md flex flex-col items-center justify-center z-50 rounded-3xl overflow-hidden">
       {/* Background mystical elements */}
       <motion.div 
         animate={{ rotate: 360 }} 
@@ -60,7 +60,7 @@ export function MysticalLoader() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.5 }}
-            className="absolute text-gold font-serif italic text-xl text-center px-4"
+            className="absolute text-gold font-headline italic text-xl text-center px-4"
           >
             {PHRASES[phraseIndex]}
           </motion.p>

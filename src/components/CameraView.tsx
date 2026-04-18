@@ -1,8 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, RefreshCcw, Sparkles, Upload, Wand2, Hand, Eye, Users, Mic, CheckCircle2, Volume2 } from 'lucide-react';
+import { Camera, RefreshCcw, Sparkles, Upload, Wand2, Hand, Eye, Users, Mic, CheckCircle2, Volume2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initModels, analyzeFace, getLandmarks } from '../services/faceAnalysis';
 import { FaceMetrics, UserInfo } from '../types';
+import * as pdfjsLib from 'pdfjs-dist';
+// @ts-ignore - Vite specific ?url import parameter
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+// Initialize PDF.js worker locally using Vite's URL import
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface CameraViewProps {
   onAnalyze: (metrics: FaceMetrics, userInfo: UserInfo, imageBase64?: string | string[], palmBase64?: string, irisBase64?: string, voiceFrequency?: number, spokenWords?: string[]) => void;
@@ -20,6 +26,24 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo>({ name: '', birthplace: '', birthDate: '', birthTime: '' });
+
+  const handlePdfUpload = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let extractedText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        extractedText += content.items.map((item: any) => item.str).join(' ') + '\n';
+      }
+      setUserInfo(prev => ({ ...prev, pdfData: extractedText }));
+    } catch (err) {
+      console.error("PDF Parsing error:", err);
+      alert("Failed to parse PDF chart. The lines are obscured.");
+    }
+  };
+
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [palmSrc, setPalmSrc] = useState<string | null>(null);
   const [irisSrc, setIrisSrc] = useState<string | null>(null);
@@ -29,13 +53,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isListening, setIsListening] = useState(false);
   
   // Capture Flow State
-  const [captureStep, setCaptureStep] = useState<'face' | 'face2' | 'palm' | 'iris' | 'voice'>('face');
+  const [captureStep, setCaptureStep] = useState<'face' | 'palm' | 'voice'>('face');
   const [capturedMetrics, setCapturedMetrics] = useState<FaceMetrics | null>(null);
   const [capturedFaceBase64, setCapturedFaceBase64] = useState<string[]>([]);
-  const [capturedMetrics2, setCapturedMetrics2] = useState<FaceMetrics | null>(null);
-  const [capturedFace2Base64, setCapturedFace2Base64] = useState<string[]>([]);
   const [voiceFrequency, setVoiceFrequency] = useState<number | null>(null);
-  const [isSynastryMode, setIsSynastryMode] = useState(false);
+  const [multiFaceDetected, setMultiFaceDetected] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
@@ -143,34 +165,35 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
           ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
           ctx.lineWidth = 0.5;
 
-          // Draw points
-          landmarks.forEach((pt: any) => {
-            const x = pt.x * canvas.width;
-            const y = pt.y * canvas.height;
-            ctx.beginPath();
-            ctx.arc(x, y, 1, 0, Math.PI * 2);
-            ctx.fill();
-          });
-
-          // Draw some connecting lines for "Sacred Geometry" feel
-          // Connect some key points (simplified mesh)
-          const connections = [
-            [10, 151, 152, 10], // Face outline vertical
-            [33, 133, 362, 263, 33], // Eyes horizontal
-            [1, 2, 3, 4, 5, 6] // Nose
-          ];
-          
-          ctx.beginPath();
-          landmarks.forEach((pt: any, i: number) => {
-            if (i % 20 === 0) { // Sparse connections for aesthetic
+          landmarks.forEach(faceLandmarks => {
+            // Draw points
+            faceLandmarks.forEach((pt: any) => {
               const x = pt.x * canvas.width;
               const y = pt.y * canvas.height;
-              ctx.moveTo(x, y);
-              const next = landmarks[(i + 20) % landmarks.length];
-              ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
-            }
+              ctx.beginPath();
+              ctx.arc(x, y, 1, 0, Math.PI * 2);
+              ctx.fill();
+            });
+
+            // Draw some connecting lines for "Sacred Geometry" feel
+            ctx.beginPath();
+            faceLandmarks.forEach((pt: any, i: number) => {
+              if (i % 20 === 0) { // Sparse connections for aesthetic
+                const x = pt.x * canvas.width;
+                const y = pt.y * canvas.height;
+                ctx.moveTo(x, y);
+                const next = faceLandmarks[(i + 20) % faceLandmarks.length];
+                ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
+              }
+            });
+            ctx.stroke();
           });
-          ctx.stroke();
+          
+          if (landmarks.length > 1) {
+              setMultiFaceDetected(true);
+          } else {
+              setMultiFaceDetected(false);
+          }
         }
       }, 100);
     } else {
@@ -290,6 +313,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const startScan = async () => {
     if (isAnalyzing || isScanning || countdown !== null) return;
     
+    if (multiFaceDetected) {
+      setError("Multiple vessels detected. Please isolate your presence before capturing.");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     // Reset candid frame for fresh scan
     setCandidFrame(null);
     setCandidMetrics(null);
@@ -359,64 +388,64 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       { start: 0.8, end: 1.0, text: "Turn Right" }
     ];
 
-    // Voice recording logic if in voice step
+    // Voice recording logic - record across the whole scanning duration if we want to capture frequencies
     let audioContext: AudioContext | null = null;
     let analyser: AnalyserNode | null = null;
     let frequencies: number[] = [];
     let recognition: any = null;
     let detectedWords: string[] = [];
 
-    if (captureStep === 'voice') {
-      const selectedWords = [...SACRED_WORDS].sort(() => 0.5 - Math.random()).slice(0, 3);
-      setVoiceWords(selectedWords);
-      setSpokenWords([]);
-      setIsListening(true);
+    // Let's capture voice during all operations to map out background frequencies
+    const selectedWords = [...SACRED_WORDS].sort(() => 0.5 - Math.random()).slice(0, 3);
+    setVoiceWords(selectedWords);
+    setIsListening(true);
 
-      try {
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-          setMicStream(stream);
-          const source = audioContext!.createMediaStreamSource(stream);
-          source.connect(analyser!);
-          analyser!.fftSize = 2048;
-        }).catch(err => {
-          console.error("Microphone access denied", err);
+    try {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        setMicStream(stream);
+        const source = audioContext!.createMediaStreamSource(stream);
+        source.connect(analyser!);
+        analyser!.fftSize = 2048;
+      }).catch(err => {
+        console.error("Microphone access denied", err);
+        if (captureStep === 'voice') {
           let message = "Microphone access denied.";
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             message = "Microphone access denied. Please enable it in your browser settings to use voice analysis.";
           }
           setError(message);
           setTimeout(() => setError(null), 5000);
-        });
-
-        // Speech Recognition
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-          recognition = new SpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = 'en-US';
-
-          recognition.onresult = (event: any) => {
-            const transcript = Array.from(event.results)
-              .map((result: any) => result[0].transcript.toLowerCase())
-              .join(' ');
-            
-            const detected = selectedWords.filter(word => transcript.includes(word.toLowerCase()));
-            detectedWords = Array.from(new Set([...detectedWords, ...detected]));
-            setSpokenWords(detectedWords);
-          };
-
-          recognition.onerror = (event: any) => {
-            console.warn("Speech recognition error", event.error);
-          };
-
-          recognition.start();
         }
-      } catch (e) {
-        console.warn("Voice capture failed", e);
+      });
+
+      // Speech Recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0].transcript.toLowerCase())
+            .join(' ');
+          
+          const detected = selectedWords.filter(word => transcript.includes(word.toLowerCase()));
+          detectedWords = Array.from(new Set([...detectedWords, ...detected]));
+          setSpokenWords(detectedWords);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.warn("Speech recognition error", event.error);
+        };
+
+        recognition.start();
       }
+    } catch (e) {
+      console.warn("Voice capture setup failed", e);
     }
 
     scanIntervalRef.current = setInterval(() => {
@@ -431,25 +460,27 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         }
       } else if (captureStep === 'voice') {
         setScanInstruction("The Ancestors listen...");
-        if (analyser) {
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          analyser.getByteFrequencyData(dataArray);
-          
-          // Find peak frequency
-          let maxVal = -1;
-          let maxIndex = -1;
-          for (let i = 0; i < bufferLength; i++) {
-            if (dataArray[i] > maxVal) {
-              maxVal = dataArray[i];
-              maxIndex = i;
-            }
+      }
+
+      // Always process audio frequencies in background
+      if (analyser && audioContext) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+        
+        // Find peak frequency
+        let maxVal = -1;
+        let maxIndex = -1;
+        for (let i = 0; i < bufferLength; i++) {
+          if (dataArray[i] > maxVal) {
+            maxVal = dataArray[i];
+            maxIndex = i;
           }
-          const nyquist = audioContext!.sampleRate / 2;
-          const freq = maxIndex * nyquist / bufferLength;
-          if (freq > 50 && freq < 1000) { // Human voice range
-            frequencies.push(freq);
-          }
+        }
+        const nyquist = audioContext.sampleRate / 2;
+        const freq = maxIndex * nyquist / bufferLength;
+        if (freq > 50 && freq < 1000) { // Human voice range
+          frequencies.push(freq);
         }
       }
 
@@ -466,7 +497,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         }
         setScanInstruction("");
         
-        if (captureStep === 'voice' && frequencies.length > 0) {
+        if (frequencies.length > 0) {
           const avgFreq = frequencies.reduce((a, b) => a + b, 0) / frequencies.length;
           if (!isNaN(avgFreq)) {
             setVoiceFrequency(avgFreq);
@@ -495,7 +526,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
 
   const processCapture = async (frames: string[], finalVoiceFreq?: number, finalSpokenWords?: string[]) => {
     try {
-      if (captureStep === 'face' || captureStep === 'face2') {
+      if (captureStep === 'face') {
         let metrics: FaceMetrics | null = null;
         let finalFrames: string[] = frames;
         
@@ -530,18 +561,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             setCapturedFaceBase64(allFrames);
             setCandidFrame(null);
             setCandidMetrics(null);
-            if (isSynastryMode) {
-                setCaptureStep('face2');
-                setImageSrc(null); // Reset image source for second face
-                startCamera(); // Restart camera for second face
-            } else {
-                setCaptureStep('palm');
-            }
-          } else {
-            setCapturedMetrics2(finalMetrics);
-            setCapturedFace2Base64(allFrames);
-            setCandidFrame(null);
-            setCandidMetrics(null);
             setCaptureStep('palm');
           }
         } else {
@@ -551,23 +570,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       } else if (captureStep === 'palm') {
         const palmBase64 = palmSrc || captureCurrentFrame();
         setPalmSrc(palmBase64);
-        setCaptureStep('iris');
-      } else if (captureStep === 'iris') {
-        const irisBase64 = irisSrc || captureCurrentFrame();
-        setIrisSrc(irisBase64);
         setCaptureStep('voice');
       } else if (captureStep === 'voice') {
         // Finalize and analyze
         if (capturedMetrics) {
-          const allFaceImages = isSynastryMode && capturedFace2Base64.length > 0
-            ? [...capturedFaceBase64, ...capturedFace2Base64]
-            : capturedFaceBase64;
+          const allFaceImages = capturedFaceBase64;
           
-          const finalMetrics = isSynastryMode && capturedMetrics2 
-            ? [capturedMetrics, capturedMetrics2] as any
-            : capturedMetrics;
+          const finalMetrics = capturedMetrics;
 
-          onAnalyze(finalMetrics, userInfo, allFaceImages.length > 0 ? allFaceImages : undefined, palmSrc || undefined, irisSrc || undefined, finalVoiceFreq || voiceFrequency || undefined, finalSpokenWords || spokenWords);
+          onAnalyze(finalMetrics, userInfo, allFaceImages.length > 0 ? allFaceImages : undefined, palmSrc || undefined, undefined, finalVoiceFreq || voiceFrequency || undefined, finalSpokenWords || spokenWords);
         }
       }
     } catch (err) {
@@ -587,21 +598,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       setIsScanning(false);
     }
     
-    if (captureStep === 'face2') {
-        setCaptureStep('palm');
-    } else if (captureStep === 'palm') {
-      setCaptureStep('iris');
-    } else if (captureStep === 'iris') {
+    if (captureStep === 'palm') {
       setCaptureStep('voice');
     } else if (captureStep === 'voice') {
       if (capturedMetrics) {
-        const finalMetrics = isSynastryMode && capturedMetrics2 
-            ? [capturedMetrics, capturedMetrics2] as any
-            : capturedMetrics;
-        const allFaceImages = isSynastryMode && capturedFace2Base64.length > 0
-            ? [...capturedFaceBase64, ...capturedFace2Base64]
-            : capturedFaceBase64;
-        onAnalyze(finalMetrics, userInfo, allFaceImages.length > 0 ? allFaceImages : undefined, palmSrc || undefined, irisSrc || undefined, voiceFrequency || undefined, spokenWords);
+        onAnalyze(capturedMetrics, userInfo, capturedFaceBase64.length > 0 ? capturedFaceBase64 : undefined, palmSrc || undefined, undefined, voiceFrequency || undefined, spokenWords);
       }
     }
   };
@@ -671,23 +672,51 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
         </div>
+
+        {/* PDF Upload Dropzone */}
+        <div className="mt-4 space-y-1.5">
+          <div className="flex items-center justify-between ml-1">
+            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Astrological Chart (PDF)</label>
+            <a href="https://www.astro.com/free/free_chart_e.htm" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1 font-label uppercase tracking-widest">
+              Get Chart from Astro.com <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+          <div 
+             className={`w-full bg-surface-container border-2 border-dashed ${userInfo.pdfData ? 'border-green-500 bg-green-500/5' : 'border-primary/20 hover:border-primary/50'} rounded-xl px-4 py-8 text-center shadow-inner cursor-pointer transition-colors relative flex flex-col items-center gap-3`}
+             onDrop={async (e) => { 
+                e.preventDefault(); 
+                const file = e.dataTransfer.files[0];
+                if (file) handlePdfUpload(file);
+             }} 
+             onDragOver={(e) => e.preventDefault()}
+          >
+             <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
+               const file = e.target.files?.[0];
+               if (file) handlePdfUpload(file);
+             }} />
+             {userInfo.pdfData ? (
+               <>
+                 <CheckCircle2 className="w-10 h-10 text-green-500" />
+                 <div>
+                   <h4 className="text-sm font-label uppercase tracking-widest text-green-500 font-bold mb-1">Chart Successfully Received!</h4>
+                   <p className="text-xs text-green-500/80 font-body">Olari has absorbed the planetary alignments.</p>
+                 </div>
+               </>
+             ) : (
+               <>
+                 <Upload className="w-8 h-8 text-primary/50" />
+                 <div>
+                   <p className="text-sm text-on-surface font-body font-medium mb-1">Upload your "Data Sheet" PDF</p>
+                   <p className="text-xs text-on-surface-variant/50 font-body">Drag & drop your chart PDF here or click to browse.</p>
+                 </div>
+               </>
+             )}
+          </div>
+        </div>
       </div>
 
       {/* Mode Selection */}
       <div className="flex flex-wrap items-center justify-center gap-4">
-        <button 
-          onClick={() => setIsSynastryMode(!isSynastryMode)}
-          className={`flex items-center space-x-3 px-6 py-3 rounded-full font-label text-xs uppercase tracking-widest transition-all duration-300 border ${
-            isSynastryMode 
-              ? 'bg-primary/10 border-primary text-primary shadow-[0_0_20px_rgba(197,160,89,0.2)]' 
-              : 'bg-surface-container-low border-primary/10 text-on-surface-variant hover:border-primary/30'
-          }`}
-        >
-          <Users className={`w-4 h-4 ${isSynastryMode ? 'fill-primary' : ''}`} />
-          <span>{isSynastryMode ? 'Synastry Mode: Active' : 'Enable Synastry'}</span>
-        </button>
-        
-        <div className="h-6 w-px bg-primary/10 hidden sm:block" />
         
         <div className="flex items-center gap-2">
           <label className="cursor-pointer group">
@@ -810,6 +839,26 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
           )}
         </AnimatePresence>
 
+        {/* Multi-Face Detected Warning */}
+        <AnimatePresence>
+          {multiFaceDetected && captureStep === 'face' && !isScanning && countdown === null && (
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="absolute top-24 left-0 right-0 z-30 flex justify-center"
+            >
+              <div className="bg-surface/90 backdrop-blur-xl p-4 rounded-2xl border border-primary/40 shadow-2xl max-w-sm text-center flex flex-col items-center gap-2">
+                <Users className="w-6 h-6 text-primary mb-1 animate-pulse" />
+                <span className="font-headline italic text-lg text-primary">Multiple Entities Detected</span>
+                <span className="font-body text-xs text-on-surface/80">
+                  Select your vessel: Please isolate your presence.
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Camera/Media Content */}
         <div className="w-full h-full relative">
           {!isLoaded && !error && (
@@ -828,7 +877,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             </div>
           )}
 
-          {imageSrc && (captureStep === 'face' || captureStep === 'face2') ? (
+          {imageSrc && (captureStep === 'face') ? (
             <img 
               ref={imageRef}
               src={imageSrc} 
@@ -838,8 +887,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           ) : palmSrc && captureStep === 'palm' ? (
             <img src={palmSrc} alt="Uploaded palm" className="w-full h-full object-contain bg-surface" />
-          ) : irisSrc && captureStep === 'iris' ? (
-            <img src={irisSrc} alt="Uploaded iris" className="w-full h-full object-contain bg-surface" />
           ) : (
             <video
               ref={videoRef}
@@ -935,16 +982,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         <div className="text-center">
           <p className="font-headline italic text-xl text-on-surface mb-1">
             {captureStep === 'face' && "Phase I: Soul Mirror"}
-            {captureStep === 'face2' && "Phase I: Partner Mirror"}
             {captureStep === 'palm' && "Phase II: Life Lines"}
-            {captureStep === 'iris' && "Phase III: Eye of Truth"}
-            {captureStep === 'voice' && "Phase IV: Sacred Word"}
+            {captureStep === 'voice' && "Phase III: Sacred Word"}
           </p>
           <p className="font-body text-xs text-on-surface-variant">
             {captureStep === 'face' && "Look Center, Up, Down, Left, Right to align your presence."}
-            {captureStep === 'face2' && "Align your partner's presence for synastry mapping."}
             {captureStep === 'palm' && "Present your dominant palm to reveal your life's geometry."}
-            {captureStep === 'iris' && "Bring your eye close to reveal the patterns of the soul."}
             {captureStep === 'voice' && "Speak the words of resonance to capture your vocal frequency."}
           </p>
         </div>
@@ -1002,9 +1045,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
                 <Camera className="w-5 h-5" />
                 <span>
                   {captureStep === 'face' && (imageSrc ? "Process Image" : "Capture Face")}
-                  {captureStep === 'face2' && (imageSrc ? "Process Image" : "Capture Partner")}
                   {captureStep === 'palm' && (palmSrc ? "Process Palm" : "Capture Palm")}
-                  {captureStep === 'iris' && (irisSrc ? "Process Iris" : "Capture Iris")}
                   {captureStep === 'voice' && "Record Voice"}
                 </span>
               </>

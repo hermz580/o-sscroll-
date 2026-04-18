@@ -28,6 +28,7 @@ export interface UserInfo {
     longitude: number;
     city?: string;
   };
+  pdfData?: string;
 }
 
 export interface FaceMetrics {
@@ -88,24 +89,11 @@ export interface FaceMetrics {
   gender: string;
 }
 
-export interface Synastry {
-  compatibilityScore: number;
-  sharedMission: string;
-  karmicConnection: string;
-  potentialFriction: string;
-  growthTrajectory: string;
-}
-
-export interface EnergyMap {
-  shape: string;
-  texture: string;
-  interaction: string;
-}
-
 export interface ReadingResponse {
   id: string;
   timestamp: number;
   poeticReading: string;
+  celestialChartAnalysis?: string;
   synthesis: {
     coreArchetype: string;
     elementalConstitution: string;
@@ -163,10 +151,16 @@ export interface ReadingResponse {
     planetaryResonance: string;
   };
   definitions?: Record<string, string>;
-  synastry?: Synastry;
-  energyMap: EnergyMap;
+  dailySeed?: string;
   voiceFrequency?: number;
   spokenWords?: string[];
+  emergentInsights?: {
+    theIllusionVeil: string; // The gap between constitutional rest and performance
+    resonanceCoherence: string; // Coherence between facial tension and voice
+    autonomicAlchemy: string; // Sympathetic vs Parasympathetic balance
+    chronosVsAion: string; // Age-vitality gap
+    currentOfWill: string; // Internal vs external energy bandwidth direction
+  };
   confidenceScore: number;
   oracleReasoning: string;
   questions?: {

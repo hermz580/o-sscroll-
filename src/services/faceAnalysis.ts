@@ -53,7 +53,7 @@ export async function initModels() {
       },
       outputFaceBlendshapes: true,
       runningMode: "VIDEO",
-      numFaces: 1,
+      numFaces: 2,
     });
     originalLog("MediaPipe models loaded");
 
@@ -252,7 +252,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
   }
 }
 
-export async function getLandmarks(media: HTMLVideoElement | HTMLImageElement): Promise<any[] | null> {
+export async function getLandmarks(media: HTMLVideoElement | HTMLImageElement): Promise<any[][] | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
   try {
     let mpResult;
@@ -263,7 +263,7 @@ export async function getLandmarks(media: HTMLVideoElement | HTMLImageElement): 
       if (media.naturalWidth === 0 || media.naturalHeight === 0) return null;
       mpResult = faceLandmarker.detect(media);
     }
-    return mpResult.faceLandmarks?.[0] || null;
+    return mpResult.faceLandmarks && mpResult.faceLandmarks.length > 0 ? mpResult.faceLandmarks : null;
   } catch (e) {
     return null;
   }

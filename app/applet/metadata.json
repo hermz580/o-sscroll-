@@ -1,0 +1,5 @@
+{
+  "name": "Astro Essence Portal",
+  "description": "An interactive astrology application that provides personalized readings based on user details and PDF documents, tapping into cosmic alignments and inner essence.",
+  "requestFramePermissions": []
+}

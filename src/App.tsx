@@ -135,9 +135,9 @@ export default function App() {
       const result = await generateReading(metrics, userInfoWithLocation, imageBase64, palmBase64, irisBase64, history, voiceFrequency, spokenWords);
       setReading(result);
       setHistory(prev => [result, ...prev].slice(0, 20)); // Keep last 20
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("The spirits are restless. Please try again.");
+      alert(error?.message || "The spirits are restless. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }

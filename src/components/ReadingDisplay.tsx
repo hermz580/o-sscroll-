@@ -1,11 +1,11 @@
 import React, { useState, useEffect, ReactNode, useRef, useMemo } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
-import { motion, AnimatePresence, useDragControls } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ReadingResponse } from '../types';
 import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Moon, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight, Music, RefreshCw, Users, Leaf, GitBranch, Zap, Calendar, Star, History, Play, Square } from 'lucide-react';
 import { toCanvas } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { generateDailyForecast, generateDeepDive, generateVisionaryInfographic } from '../services/readingService';
+import { generateDailyForecast, generateDeepDive } from '../services/readingService';
 
 import { MODALITIES } from '../constants/modalities';
 
@@ -242,11 +242,6 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
               <h3 className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
             </div>
             <div className="flex items-center gap-4">
-              {openId === tradition.id && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <AudioTargetOrb text={`${tradition.name}. ${tradition.content}`} color="#b0c6f9" label="Read" />
-                </div>
-              )}
               {openId === tradition.id ? (
                 <ChevronUp className="w-5 h-5 text-[#1a1a1a]/40" />
               ) : (
@@ -322,123 +317,7 @@ const getTextColorForBackground = (hex: string) => {
   return luminance > 0.5 ? '#1a1a1a' : '#f5f2ed';
 };
 
-const AudioTargetOrb = ({ text, color, label }: { text: string, color: string, label?: string }) => {
-  return (
-    <div 
-      className="audio-dropzone relative flex items-center justify-center w-12 h-12 rounded-full border border-dashed transition-all duration-300 group cursor-pointer"
-      style={{ borderColor: `${color}40` }}
-      data-audio-text={text}
-      data-audio-color={color}
-      title="Drag the Play button here to read this section"
-    >
-      <div className="w-4 h-4 rounded-full animate-pulse shadow-lg" style={{ backgroundColor: color, boxShadow: `0 0 15px ${color}` }} />
-      {label && <span className="absolute -bottom-6 text-[10px] uppercase tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50" style={{ color }}>{label}</span>}
-    </div>
-  );
-};
 
-const DraggablePlayButton = ({ defaultText, defaultColor }: { defaultText: string, defaultColor: string }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [activeTarget, setActiveTarget] = useState({ text: defaultText, color: defaultColor });
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dragControls = useDragControls();
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      window.speechSynthesis.cancel();
-      setIsPlaying(false);
-    } else {
-      const utterance = new SpeechSynthesisUtterance(activeTarget.text);
-      utterance.rate = playbackRate;
-      utterance.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
-      setIsPlaying(true);
-    }
-  };
-
-  const cyclePlaybackRate = () => {
-    const nextRate = playbackRate === 1 ? 1.25 : playbackRate === 1.25 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
-    setPlaybackRate(nextRate);
-    if (isPlaying) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(activeTarget.text);
-      utterance.rate = nextRate;
-      utterance.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  useEffect(() => {
-    return () => window.speechSynthesis.cancel();
-  }, []);
-
-  const handleDrag = () => {
-    if (!buttonRef.current) return;
-    const buttonRect = buttonRef.current.getBoundingClientRect();
-    const buttonCenterX = buttonRect.left + buttonRect.width / 2;
-    const buttonCenterY = buttonRect.top + buttonRect.height / 2;
-
-    const dropzones = document.querySelectorAll('.audio-dropzone');
-    let closest: Element | null = null;
-    let minDistance = 120; // Snap radius
-
-    dropzones.forEach(zone => {
-      const rect = zone.getBoundingClientRect();
-      const zoneCenterX = rect.left + rect.width / 2;
-      const zoneCenterY = rect.top + rect.height / 2;
-      const distance = Math.hypot(buttonCenterX - zoneCenterX, buttonCenterY - zoneCenterY);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closest = zone;
-      }
-    });
-
-    if (closest) {
-      const text = closest.getAttribute('data-audio-text');
-      const color = closest.getAttribute('data-audio-color');
-      if (text && color && activeTarget.text !== text) {
-        setActiveTarget({ text, color });
-        if (isPlaying) {
-          window.speechSynthesis.cancel();
-          setIsPlaying(false);
-        }
-      }
-    }
-  };
-
-  return (
-    <motion.div
-      drag
-      dragControls={dragControls}
-      dragMomentum={false}
-      onDrag={handleDrag}
-      className="fixed z-[9999] cursor-grab active:cursor-grabbing flex flex-col items-center gap-2"
-      style={{ bottom: 16, right: 16 }}
-    >
-      <button
-        onClick={cyclePlaybackRate}
-        className="w-8 h-8 rounded-full bg-[#1a1a1a] text-gold text-[10px] font-bold shadow-lg border border-gold/20 hover:scale-110 transition-transform sm:w-10 sm:h-10 sm:text-xs"
-        title="Change Playback Speed"
-      >
-        {playbackRate}x
-      </button>
-      <button
-        ref={buttonRef}
-        onClick={togglePlay}
-        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center border-2 hover:scale-105 transition-all duration-300"
-        style={{ 
-          backgroundColor: '#1a1a1a',
-          borderColor: activeTarget.color,
-          boxShadow: `0 10px 30px ${activeTarget.color}60`,
-        }}
-      >
-        {isPlaying ? <Square className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: activeTarget.color }} /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-1" style={{ color: activeTarget.color }} />}
-      </button>
-    </motion.div>
-  );
-};
 
 interface ReadingDisplayProps {
   reading: ReadingResponse;
@@ -490,8 +369,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [deepDive, setDeepDive] = useState<{topic: string, content: string} | null>(null);
   const [isLoadingDeepDive, setIsLoadingDeepDive] = useState<'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma' | null>(null);
-  const [visionaryImage, setVisionaryImage] = useState<string | null>(null);
-  const [isLoadingVisionary, setIsLoadingVisionary] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [highlightedWord, setHighlightedWord] = useState<{word: string, definition: string | null} | null>(null);
   const [question, setQuestion] = useState('');
@@ -553,18 +430,20 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [reading.definitions]);
 
-  const pages = [
-    { id: 'resonance', label: 'Holistic Soul Narrative' },
+  const basePages = [
+    { id: 'resonance', label: 'The Resonance' },
     { id: 'oracle', label: 'Question the Oracle' },
-    { id: 'unseen', label: 'The Unseen' },
-    { id: 'energy', label: 'Energy Map' },
-    { id: 'synastry', label: 'Soul Synastry' },
-    { id: 'signature', label: 'Soul Signature' },
-    { id: 'omens', label: 'Omens & Guidance' },
-    { id: 'vision', label: 'Visionary Infographic' },
+    { id: 'breakdown', label: 'Features & Traditions' },
     { id: 'cosmic', label: 'Cosmic Alignment' },
+    { id: 'omens', label: 'Omens & Guidance' },
     { id: 'deep-dives', label: 'Deep Dives' }
   ];
+
+  if (reading.celestialChartAnalysis) {
+    basePages.splice(4, 0, { id: 'celestial-pdf', label: 'Celestial Chart' });
+  }
+
+  const pages = basePages;
 
   const handleGetForecast = async () => {
     setIsLoadingForecast(true);
@@ -575,18 +454,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       console.error(e);
     } finally {
       setIsLoadingForecast(false);
-    }
-  };
-
-  const handleGetVisionaryImage = async () => {
-    setIsLoadingVisionary(true);
-    try {
-      const image = await generateVisionaryInfographic(reading);
-      setVisionaryImage(image);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoadingVisionary(false);
     }
   };
 
@@ -657,9 +524,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             className="space-y-8"
           >
             <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose relative">
-              <div className="absolute top-0 right-0 z-20">
-                <AudioTargetOrb text={reading.poeticReading} color={readableAuraColorDarkBg} label="Main Reading" />
-              </div>
               <div className="text-center mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#1a1a1a]/10">
                 <p className="text-[10px] md:text-sm uppercase tracking-[0.3em] text-gold/80 font-sans">Temporal Alignment</p>
                 <p className="text-base md:text-lg font-serif italic text-[#1a1a1a]/60 mt-2">
@@ -783,99 +647,38 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             </div>
           </motion.div>
         );
-      case 'unseen': // The Unseen
+      case 'breakdown': // Features & Traditions
         return (
           <motion.div
-            key="page-unseen"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
-          >
-            <div className="absolute top-0 right-0 z-20">
-              <AudioTargetOrb text={reading.synthesis?.theUnseen || "The unseen remains veiled for now."} color="#c5a059" label="Read Unseen" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">The Unseen Revealed</h3>
-              <p className="text-[#1a1a1a]/60 text-xs md:text-sm max-w-xl mx-auto mb-6 md:mb-8">
-                What is seen only after all physical, astrological, and numerological traits have been accounted for. The ultimate truth of your trajectory.
-              </p>
-            </div>
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-6 md:p-8 rounded-3xl bg-[#1a1a1a]/5 border border-gold/20 shadow-inner"
-            >
-              <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose text-center">
-                <div className="text-[#1a1a1a]/90">
-                  <MemoizedMarkdown
-                    components={simpleMarkdownComponents}
-                    content={reading.synthesis?.theUnseen || "The unseen remains veiled for now."}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        );
-      case 'signature': // Soul Signature
-        return (
-          <motion.div
-            key="page-signature"
+            key="page-breakdown"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             className="space-y-12 relative"
           >
-            <div className="absolute top-0 right-0 z-20">
-              <AudioTargetOrb text={reading.synthesis?.soulSignature || "Your soul signature is a mystery."} color="#c5a059" label="Read Signature" />
-            </div>
             <div className="text-center">
-              <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">Soul Signature</h3>
-              <p className="text-[#1a1a1a]/60 text-xs md:text-sm max-w-xl mx-auto">
-                The unique vibration of your essence as captured by the Digital Griot.
+              <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">Features & Traditions</h3>
+              <p className="text-[#1a1a1a]/60 text-xs md:text-sm max-w-xl mx-auto mb-6 md:mb-8">
+                A breakdown of your vessel's architecture across multiple esoteric traditions.
               </p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 flex flex-col items-center text-center">
-                <div 
-                  className="w-32 h-32 rounded-full mb-6 relative"
-                  style={{ 
-                    background: `radial-gradient(circle, ${auraHex} 0%, transparent 70%)`,
-                    boxShadow: `0 0 60px ${auraHex}40`
-                  }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Sparkles className="w-12 h-12 text-gold animate-pulse" />
+            
+            <div className="space-y-8">
+              {reading.detailedFeatures && (
+                <div className="p-6 md:p-8 rounded-3xl bg-[#1a1a1a]/5 border border-gold/20">
+                  <h4 className="text-lg font-serif italic text-gold mb-4">Architectural Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(reading.detailedFeatures).map(([key, value]) => (
+                      <div key={key} className="space-y-1">
+                        <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                        <p className="text-sm text-[#1a1a1a]/80 leading-relaxed">{value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-2">Aura Resonance</h4>
-                <p className="text-2xl font-serif italic" style={{ color: readableAuraColorLightBg }}>
-                  {reading.synthesis?.auraColor || 'Radiant'}
-                </p>
-              </div>
-
-              <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 flex flex-col items-center text-center justify-center">
-                <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-4">Core Archetype</h4>
-                <p className="text-4xl font-serif italic text-gold mb-4">{reading.synthesis?.coreArchetype}</p>
-                <p className="text-sm text-[#1a1a1a]/60 font-serif italic leading-relaxed">
-                  {reading.synthesis?.soulSignature}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-              <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Soul Mission</h4>
-              <p className="text-xl font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center italic">
-                "{reading.synthesis?.soulMission}"
-              </p>
-            </div>
-
-            <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-              <h4 className="text-xs uppercase tracking-[0.3em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Ancestral Echo</h4>
-              <p className="text-lg font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center">
-                {reading.synthesis?.ancestralEcho}
-              </p>
+              )}
+              
+              <TraditionsAccordion reading={reading} />
             </div>
           </motion.div>
         );
@@ -889,7 +692,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             className="space-y-8 relative"
           >
             <div className="absolute top-0 right-0 z-20">
-              {dailyForecast && <AudioTargetOrb text={`Omens and Guidance. ${dailyForecast}`} color="#c5a059" label="Read Omens" />}
             </div>
             <div className="text-center">
               <h3 className="text-2xl font-serif italic text-gold mb-4">Omens & Guidance</h3>
@@ -932,76 +734,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             )}
           </motion.div>
         );
-      case 'vision': // Visionary Infographic
-        return (
-          <motion.div
-            key="page-vision"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
-          >
-            <div className="absolute top-0 right-0 z-20">
-              {visionaryImage && <AudioTargetOrb text={`Visionary Infographic generated.`} color="#c5a059" label="Read Vision" />}
-            </div>
-            <div className="text-center">
-              <h3 className="text-2xl font-serif italic text-gold mb-4">Visionary Infographic</h3>
-              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
-                A visual manifestation of your soul's blueprint, blending your image with ancient symbols and cosmic geometry.
-              </p>
-              
-              {!visionaryImage && !isLoadingVisionary && (
-                <button 
-                  onClick={handleGetVisionaryImage}
-                  className="px-8 py-4 rounded-full bg-[#1a1a1a] text-gold uppercase tracking-widest font-bold hover:bg-[#2a2a2a] transition-all shadow-xl border border-gold/20"
-                >
-                  Manifest Vision
-                </button>
-              )}
-              
-              {isLoadingVisionary && (
-                <div className="flex flex-col items-center justify-center py-12 text-gold">
-                  <Eye className="w-8 h-8 animate-pulse mb-4 opacity-50" />
-                  <p className="font-serif italic text-lg animate-pulse">Weaving your essence into light...</p>
-                </div>
-              )}
-            </div>
-
-            {visionaryImage && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex justify-center"
-              >
-                <div className="relative p-4 bg-[#1a1a1a] rounded-2xl shadow-2xl border border-gold/30 max-w-md w-full group">
-                  <img 
-                    src={visionaryImage} 
-                    alt="Visionary Infographic" 
-                    className="w-full h-auto rounded-xl"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-gold text-[#1a1a1a] px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
-                    Destiny Manifested
-                  </div>
-                  <button 
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = visionaryImage;
-                      link.download = `Olaris-Vision-${new Date().toISOString().split('T')[0]}.jpg`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    className="absolute top-8 right-8 p-3 bg-black/50 hover:bg-black/80 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 shadow-xl border border-white/10"
-                    title="Download Vision"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-        );
       case 'cosmic': // Cosmic
         return (
           <motion.div
@@ -1012,7 +744,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             className="grid grid-cols-1 md:grid-cols-2 gap-6 relative"
           >
             <div className="absolute -top-12 right-0 z-20">
-              <AudioTargetOrb text={`Astrological Blueprint. Sun Sign: ${reading.cosmicAlignment?.sunSign}. Moon Sign: ${reading.cosmicAlignment?.moonSign}. Rising Sign: ${reading.cosmicAlignment?.risingSign}. Numerological Resonance. Life Path Number: ${reading.cosmicAlignment?.lifePathNumber}. Destiny Number: ${reading.cosmicAlignment?.destinyNumber}. Soul Urge Number: ${reading.cosmicAlignment?.soulUrgeNumber}.`} color="#e9c176" label="Read Cosmic" />
             </div>
             <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
               <h3 className="text-xl font-serif italic text-gold mb-6 flex items-center gap-2">
@@ -1070,13 +801,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             className="space-y-8 relative"
           >
             <div className="absolute top-0 right-0 z-20">
-              {deepDive?.topic === 'love' && <AudioTargetOrb text={`Love Destiny: ${deepDive.content}`} color="#ef4444" label="Read Love" />}
-              {deepDive?.topic === 'career' && <AudioTargetOrb text={`Career Destiny: ${deepDive.content}`} color="#3b82f6" label="Read Career" />}
-              {deepDive?.topic === 'health' && <AudioTargetOrb text={`Health Destiny: ${deepDive.content}`} color="#22c55e" label="Read Health" />}
-              {deepDive?.topic === 'ancestral' && <AudioTargetOrb text={`Ancestral Destiny: ${deepDive.content}`} color="#f59e0b" label="Read Ancestral" />}
-              {deepDive?.topic === 'spiritual' && <AudioTargetOrb text={`Spiritual Destiny: ${deepDive.content}`} color="#a855f7" label="Read Spiritual" />}
-              {deepDive?.topic === 'shadow' && <AudioTargetOrb text={`Shadow Destiny: ${deepDive.content}`} color="#71717a" label="Read Shadow" />}
-              {deepDive?.topic === 'dharma' && <AudioTargetOrb text={`Dharma Destiny: ${deepDive.content}`} color="#eab308" label="Read Dharma" />}
             </div>
             {/* Oracle Actions */}
             <div className="flex flex-wrap justify-center gap-4 mb-8">
@@ -1180,122 +904,27 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             )}
           </motion.div>
         );
-      case 'energy': // Energy Map
+      case 'celestial-pdf':
+        if (!reading.celestialChartAnalysis) return null;
         return (
           <motion.div
-            key="page-energy"
+            key="page-celestial-pdf"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8 relative"
           >
             <div className="absolute top-0 right-0 z-20">
-              <AudioTargetOrb text={`Energy Map. Geometric Form: ${reading.energyMap.shape}. Vibrational Texture: ${reading.energyMap.texture}. Field Interaction: ${reading.energyMap.interaction}`} color={auraHex} label="Read Energy" />
             </div>
             <div className="text-center">
-              <h3 className="text-2xl font-serif italic text-gold mb-4">3D Energy Mapping</h3>
+              <h3 className="text-2xl font-serif italic text-gold mb-4">Celestial Deep Dive</h3>
               <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
-                A visual representation of your soul's unique energetic geometry and vibrational signature.
+                Analysis extracted from your Data Sheet PDF geometry.
               </p>
             </div>
-
-            <div className="relative h-80 w-full flex items-center justify-center bg-[#1a1a1a] rounded-3xl overflow-hidden shadow-2xl border border-gold/20">
-              <div className="absolute inset-0 z-10">
-                <EnergyField color={auraHex} />
-              </div>
-
-              <div className="relative z-20 flex flex-col items-center">
-                <div className="mt-8 text-center">
-                  <p className="font-mono text-xs uppercase tracking-[0.3em] mb-1" style={{ color: textColorForOrb === '#1a1a1a' ? 'rgba(26,26,26,0.7)' : '#c5a059' }}>Geometric Form</p>
-                  <p className="text-2xl font-serif italic" style={{ color: textColorForOrb }}>{reading.energyMap.shape}</p>
-                </div>
-              </div>
+            <div className="prose prose-sm sm:prose-base mx-auto max-w-3xl prose-headings:font-serif prose-headings:font-normal prose-h3:text-gold prose-h4:text-[#1a1a1a]/60 prose-h4:tracking-[0.2em] prose-h4:text-xs prose-h4:uppercase prose-p:text-[#1a1a1a]/80 prose-p:leading-[2em] prose-strong:text-gold/80 prose-em:text-[#1a1a1a]">
+               <ReactMarkdown>{reading.celestialChartAnalysis}</ReactMarkdown>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-                <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Vibrational Texture</h4>
-                <p className="text-lg font-serif italic text-[#1a1a1a]/80">{reading.energyMap.texture}</p>
-              </div>
-              <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-                <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Field Interaction</h4>
-                <p className="text-sm text-[#1a1a1a]/70 leading-relaxed">{reading.energyMap.interaction}</p>
-              </div>
-            </div>
-
-
-          </motion.div>
-        );
-      case 'synastry': // Soul Synastry
-        return (
-          <motion.div
-            key="page-synastry"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
-          >
-            <div className="absolute top-0 right-0 z-20">
-              {reading.synastry && <AudioTargetOrb text={`Soul Synastry. Compatibility Score: ${reading.synastry.compatibilityScore} percent. Shared Mission: ${reading.synastry.sharedMission}. Karmic Connection: ${reading.synastry.karmicConnection}. Potential Friction: ${reading.synastry.potentialFriction}. Growth Trajectory: ${reading.synastry.growthTrajectory}.`} color="#c5a059" label="Read Synastry" />}
-            </div>
-            <div className="text-center">
-              <h3 className="text-2xl font-serif italic text-gold mb-4">Relationship Synastry</h3>
-              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto mb-8">
-                The intersection of two souls. How your energies weave together to form a greater whole.
-              </p>
-            </div>
-
-            {reading.synastry ? (
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 text-center">
-                    <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Compatibility</h4>
-                    <p className="text-4xl font-serif italic text-gold">{reading.synastry.compatibilityScore}%</p>
-                  </div>
-                  <div className="md:col-span-2 p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-                    <h4 className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold mb-2">Shared Soul Mission</h4>
-                    <p className="text-lg font-serif italic text-[#1a1a1a]/80">"{reading.synastry.sharedMission}"</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="p-8 rounded-3xl bg-rose-500/5 border border-rose-500/20">
-                    <h4 className="text-xs uppercase tracking-[0.2em] text-rose-500/60 font-bold mb-4 flex items-center gap-2">
-                      <Heart className="w-4 h-4" />
-                      Karmic Connection
-                    </h4>
-                    <p className="text-sm text-[#1a1a1a]/70 leading-relaxed italic">
-                      {reading.synastry.karmicConnection}
-                    </p>
-                  </div>
-                  <div className="p-8 rounded-3xl bg-amber-500/5 border border-amber-500/20">
-                    <h4 className="text-xs uppercase tracking-[0.2em] text-amber-500/60 font-bold mb-4 flex items-center gap-2">
-                      <Flame className="w-4 h-4" />
-                      Potential Friction
-                    </h4>
-                    <p className="text-sm text-[#1a1a1a]/70 leading-relaxed italic">
-                      {reading.synastry.potentialFriction}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-8 rounded-3xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10">
-                  <h4 className="text-xs uppercase tracking-[0.2em] text-[#1a1a1a]/40 font-bold mb-6 text-center">Growth Trajectory</h4>
-                  <p className="text-lg font-serif italic text-[#1a1a1a]/80 leading-relaxed text-center">
-                    {reading.synastry.growthTrajectory}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center p-12 border border-dashed border-[#1a1a1a]/20 rounded-2xl">
-                <Users className="w-8 h-8 text-gold/40 mx-auto mb-4" />
-                <p className="text-[#1a1a1a]/50 font-serif italic text-lg">
-                  Synastry is revealed only when two faces are presented to the oracle. 
-                  <br />
-                  <span className="text-xs uppercase tracking-widest font-bold mt-4 block">Single Soul Reading Active</span>
-                </p>
-              </div>
-            )}
           </motion.div>
         );
       default:
@@ -1323,7 +952,6 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       animate={{ opacity: 1 }}
       className="max-w-7xl mx-auto mt-12 space-y-16 pb-24"
     >
-      <DraggablePlayButton defaultText={reading.poeticReading} defaultColor={readableAuraColorDarkBg} />
 
       {/* Page Navigation Tabs */}
       <div className="flex justify-start sm:justify-center mb-8 overflow-x-auto px-4 pb-4 no-scrollbar">

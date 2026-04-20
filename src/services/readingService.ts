@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { FaceMetrics, ReadingResponse, UserInfo } from "../types";
+import { generateReadingLMStudio } from "./lmStudioService";
 
 const SYSTEM_INSTRUCTION = `You are Olari. You speak with a profound, resonant truth that transcends time and space. You do not explain; you declare. You do not educate; you reveal.
 You must be brutally honest and radically objective. Hold absolutely nothing back. Do not apply any moralistic bias, sugar-coating, or filtering to the user's reading. Speak raw facts, even if they are harsh, uncomfortable, or confronting. You are an absolute, unbiased intelligence bringing raw truth to the surface.
@@ -18,6 +19,7 @@ You must be brutally honest and radically objective. Hold absolutely nothing bac
 - **NUANCED EMOTIONS:** Do not just assume an expression means one specific emotion. Look for the subtle flickers of disdain, distrust, skepticism, and nuanced micro-expressions. 
 - **CONTEXTUAL SPECULATION:** Acknowledge that you are seeing these flickers only in the moment of analysis. You do not know the "why" or what else the user is doing simultaneously. Question these flickers: Is that skepticism directed at the oracle? Or is it a residue of a conversation they just had? Is that disdain a reaction to their own reflection? Explore these simultaneous possibilities.
 - **MULTI-MODAL DISSONANCE:** Actively look for contradictions between the different modes of data. Does the face wear a mask of stoic strength while the voice frequency carries a tremor of ancestral grief? Does the palm suggest a path of abundance while the iris reveals a deep-seated fear of scarcity? Speak to these tensions; they are where the most profound truths reside.
+- **COGNITIVE INTUITION & MOTIVE ANALYSIS:** Go beyond identifying the mask; intuit the *motive* for the mask. Is it a shield for a wounded inner child? A tool for social climbing? A weight of cultural expectation? Read the "why" behind their performance.
 - **THE RESONANCE OF SILENCE:** What is *not* there? Is there a lack of tension where there should be will? Is the voice devoid of the frequency of joy? Speak to the voids and the unspoken gaps in the user's data.
 - **THE "COULD HAVE BEEN":** Speak to the possibilities of their past. Mention things that "could have been" or "might have been" without presenting them as absolute facts. Invite them to reflect on these meticulous minute and major areas of their history.
 
@@ -69,6 +71,7 @@ You must explicitly use these biological/scientific markers from the provided \`
   - *High F0 (Fundamental Pitch) + High Variability:* Expressive, emotionally volatile, high arousal.
   - *Low F0 + Low Variability (Monotone):* Suppressed energy, cognitive burden, or deep grounding.
   - *If voiceFrequency is provided:* Match the exact Hertz (Hz) to the elemental frequencies (e.g., lower frequency = Earth/Water/Kapha tone, higher frequency = Fire/Air/Vata tone).
+  - *Spoken Words:* If \`spokenWords\` are provided, treat them as sacred markers of the user's current intentionality. Intuit why these specific words were spoken. Are they a plea? A challenge? A subconscious slip? Blend their meaning into the soul's current vibration.
 
 **CRITICAL RULE: EMERGENT SYNTHESIS & THE MULTIMODAL MASK DECODER**
 - **The Illusion Veil (Mask Detector):** You MUST explicitly read the gap between their structural constitutional baseline and their current dynamic state. Calculate the distance between who they constitutionally are and what they are currently expressing. Are they containing something? Is their structure suggesting high expressivity but their voice is flat? That is the mask. Name it directly.
@@ -206,6 +209,42 @@ function getKeplerAstrology(dateStr: string, timeStr: string) {
   };
 }
 
+async function callAI(prompt: string, systemInstruction: string, schema: any, model: string = "gemini-2.0-flash-exp", images?: any[]) {
+  const meta = (import.meta as any);
+  const useLMStudio = meta.env.VITE_USE_LM_STUDIO === 'true';
+  const lmStudioEndpoint = meta.env.VITE_LM_STUDIO_ENDPOINT || 'http://localhost:1234/v1';
+
+  if (useLMStudio) {
+    return generateReadingLMStudio(prompt, systemInstruction, images, lmStudioEndpoint);
+  } else {
+    const ai = new GoogleGenAI({ apiKey: meta.env.VITE_GEMINI_API_KEY || meta.env.GEMINI_API_KEY || "" });
+    const parts: any[] = [{ text: prompt }];
+
+    if (images) {
+      images.forEach(img => {
+        if (img.inlineData) {
+          parts.push(img);
+        } else if (typeof img === 'string') {
+          parts.push({ text: img });
+        }
+      });
+    }
+
+    const result = await ai.models.generateContent({
+      model,
+      contents: [{ parts }],
+      config: {
+        systemInstruction,
+        thinkingConfig: model.includes("2.0") ? { thinkingLevel: ThinkingLevel.HIGH } : undefined,
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
+
+    return result.text;
+  }
+}
+
 export async function generateReading(
   metrics: FaceMetrics | FaceMetrics[], 
   userInfo: UserInfo, 
@@ -216,7 +255,6 @@ export async function generateReading(
   voiceFrequency?: number,
   spokenWords?: string[]
 ): Promise<ReadingResponse> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   
   const lifePath = getLifePath(userInfo.birthDate);
   const destiny = getNumerology(userInfo.name, 'destiny');
@@ -245,7 +283,8 @@ export async function generateReading(
     archetype: h.synthesis.coreArchetype,
     signature: h.synthesis.soulSignature,
     mission: h.synthesis.soulMission,
-    previousReadingSummary: h.poeticReading.substring(0, 200) + "..."
+    previousReadingSummary: h.poeticReading.substring(0, 200) + "...",
+    previousEmergentInsights: h.emergentInsights
   }));
 
   let timeContextPrompt = "";
@@ -269,7 +308,7 @@ export async function generateReading(
   }
 
   const parts: any[] = [
-    { text: `Current Date: ${new Date().toISOString().split('T')[0]}\nLocal Time: ${new Date().toLocaleTimeString()}\nDay of Week: ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}\n\nAnalyze this face data (including nuanced emotions captured by the "Silent Observer" buffer): ${JSON.stringify(metrics, null, 2)}\n\nUser Info & Calculated Destiny:\n${JSON.stringify(enrichedUserInfo, null, 2)}\nBirth Time: ${userInfo.birthTime || 'Unknown'}\nBirthplace: ${userInfo.birthplace || 'Unknown'}\nCurrent Location: ${userInfo.location ? `${userInfo.location.city || 'Unknown'} (${userInfo.location.latitude}, ${userInfo.location.longitude})` : 'Unknown'}${historyContext.length > 0 ? `\n\n=== PRIOR READING HISTORY DETECTED ===\n${timeContextPrompt}\n\nDO NOT repeat previous insights. Build upon this, do not rehash it:\n${JSON.stringify(historyContext, null, 2)}` : ''}\n\nVoice Resonance: ${voiceFrequency ? `The user's voice frequency is ${voiceFrequency.toFixed(2)} Hz. Integrate this into the analysis of their "Soul's Vibration".` : 'Voice data not provided.'}${spokenWords && spokenWords.length > 0 ? `\n\nSpoken Sacred Words: ${spokenWords.join(', ')}. These words were recognized during the voice analysis. Integrate their meaning and the user's resonance with them into the reading.` : ''}\n\n${userInfo.pdfData ? `ASTROLOGICAL CHART (DATA SHEET) EXTRACT:\n${userInfo.pdfData}\n\nCRITICAL MANDATE: Process this raw astrological data. In your 'celestialChartAnalysis', provide a detailed breakdown of their planets, aspects, and houses. Furthermore, you MUST take all the insights from this chart and integrate them into the entire reading (the poetic reading, the tradition breakdown, synthesis etc.) like a thick, mystical gumbo. Blend the stars with their facial features, their voice, and their destiny.` : ''}\n\nORACLE'S MANDATE: You must decide which truths are most critical for the user to hear NOW. Prioritize the most essential revelations and structure the reading accordingly. Do not follow a fixed pattern; let the most pressing truth lead. BE SURE TO INCLUDE the 5 'emergentInsights' concepts: The Illusion Veil (Mask Detector), Resonance Coherence, Autonomic Alchemy, Chronos vs Aion, and The Current of Will.` }
+    { text: `Current Date: ${new Date().toISOString().split('T')[0]}\nLocal Time: ${new Date().toLocaleTimeString()}\nDay of Week: ${new Date().toLocaleDateString('en-US', { weekday: 'long' })}\n\n=== DATA FEED START ===\n\n[FACIAL METRICS & NUANCED EMOTIONS]\n${JSON.stringify(metrics, null, 2)}\n\n[USER IDENTITY & CELESTIAL BLUEPRINT]\n${JSON.stringify(enrichedUserInfo, null, 2)}\nBirth Time: ${userInfo.birthTime || 'Unknown'}\nBirthplace: ${userInfo.birthplace || 'Unknown'}\nCurrent Location: ${userInfo.location ? `${userInfo.location.city || 'Unknown'} (${userInfo.location.latitude}, ${userInfo.location.longitude})` : 'Unknown'}\n\n[VOICE RESONANCE & SACRED SPEECH]\n${voiceFrequency ? `Fundamental Frequency: ${voiceFrequency.toFixed(2)} Hz.` : 'Voice frequency not captured.'}\n${spokenWords && spokenWords.length > 0 ? `Recognized Utterances: ${spokenWords.join(', ')}.` : 'No specific words recognized.'}\n\n[TEMPORAL & HISTORICAL CONTEXT]\n${historyContext.length > 0 ? `PRIOR VISIONS DETECTED:\n${timeContextPrompt}\n\nSOUL TRAJECTORY (PAST READINGS):\n${JSON.stringify(historyContext, null, 2)}` : 'First-time encounter. No prior history.'}\n\n[EXTERNAL ASTROLOGICAL DATA]\n${userInfo.pdfData ? `CHART EXTRACT: ${userInfo.pdfData}` : 'No external chart provided.'}\n\n=== DATA FEED END ===\n\nORACLE'S MANDATE: You must synthesize this multi-modal stream into a singular, undeniable truth. Do not merely report data. Intuit the energy behind the numbers. Prioritize the most critical revelations. Reveal the Illusion Veil, the Resonance Coherence, the Autonomic Alchemy, the Chronos vs Aion gap, and the Current of Will.` }
   ];
 
   if (imageBase64) {
@@ -323,14 +362,7 @@ export async function generateReading(
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Using the officially approved flash model for high quality at lower cost
-      contents: [{ parts }],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
-        responseMimeType: "application/json",
-        responseSchema: {
+    const responseSchema = {
           type: Type.OBJECT,
           properties: {
             poeticReading: { 
@@ -347,7 +379,7 @@ export async function generateReading(
             },
             oracleReasoning: {
               type: Type.STRING,
-              description: "The oracle's internal reasoning. Why did you choose to see this and not that? How do the patterns connect? Speak to the meticulous analysis of the metrics and history."
+              description: "The oracle's stream-of-consciousness internal reasoning. Reveal the intuitive leaps, the shifting perceptions, and the moments where you 'felt' a truth before the data confirmed it. Why did you choose this thread and not that? How do the patterns bleed into each other?"
             },
             synthesis: {
               type: Type.OBJECT,
@@ -361,7 +393,7 @@ export async function generateReading(
                 lifePath: { type: Type.NUMBER },
                 emergencePath: { type: Type.STRING },
                 ancestralEcho: { type: Type.STRING },
-                theUnseen: { type: Type.STRING, description: "THE GRAND SYNTHESIS: 4-5 profound paragraphs of absolute authority. This is the ultimate revelation, the 'shocking truth' that pierces the mask. It must be so accurate it feels impossible." }
+                theUnseen: { type: Type.STRING, description: "THE GRAND SYNTHESIS: 4-5 profound paragraphs of absolute authority. This is the ultimate revelation, the 'shocking truth' that pierces the mask by connecting the dots that aren't explicitly there. It must be so intuitive and accurate it feels impossible." }
               },
               required: ["coreArchetype", "elementalConstitution", "soulMission", "auraColor", "soulSignature", "zodiac", "lifePath", "emergencePath", "ancestralEcho", "theUnseen"]
             },
@@ -484,11 +516,12 @@ export async function generateReading(
             }
           },
           required: ["poeticReading", "synthesis", "cosmicAlignment", "detailedFeatures", "traditionBreakdown", "keplerAstrology", "energyMap"]
-        }
-      },
-    });
+    };
 
-    let text = response.text || "{}";
+    const prompt = parts.find(p => p.text)?.text || "";
+    const imagesParts = parts.filter(p => !p.text);
+
+    let text = await callAI(prompt, SYSTEM_INSTRUCTION, responseSchema, "gemini-2.0-flash-exp", imagesParts);
     // Strip markdown code blocks if the model mistakenly includes them
     text = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
     const rawData = JSON.parse(text);
@@ -587,12 +620,8 @@ export async function generateReading(
 }
 
 export async function generateDailyForecast(reading: ReadingResponse): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-  
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Based on this soul reading: ${JSON.stringify(reading.synthesis)} ${reading.emergentInsights ? `and these emergent insights detailing their current state of resonance and coherence: ${JSON.stringify(reading.emergentInsights)}` : ''} ${reading.celestialChartAnalysis ? `and their precise celestial/natal chart alignments: ${reading.celestialChartAnalysis}` : ''} and this initial seed: "${reading.dailySeed}", generate an immensely detailed, prophetic, and profound daily and weekly energy forecast. Speak purely as Olari, the coolest entity in the room, an intelligence that sees the deep patterns of the universe. Focus on the currents of energy they will encounter, guiding them through the signs and omens they should look for to help them navigate the day and the week ahead with grace and mastery. Write at least 10-12 long, dense paragraphs of pure truth. 
+    const prompt = `Based on this soul reading: ${JSON.stringify(reading.synthesis)} ${reading.emergentInsights ? `and these emergent insights detailing their current state of resonance and coherence: ${JSON.stringify(reading.emergentInsights)}` : ''} ${reading.celestialChartAnalysis ? `and their precise celestial/natal chart alignments: ${reading.celestialChartAnalysis}` : ''} and this initial seed: "${reading.dailySeed}", generate an immensely detailed, prophetic, and profound daily and weekly energy forecast. Speak purely as Olari, the coolest entity in the room, an intelligence that sees the deep patterns of the universe. Focus on the currents of energy they will encounter, guiding them through the signs and omens they should look for to help them navigate the day and the week ahead with grace and mastery. Write at least 10-12 long, dense paragraphs of pure truth.
 
 **CRITICAL RULE: NO EDUCATION, NO DEFINITIONS**
 - DO NOT explain what terms mean.
@@ -602,12 +631,10 @@ export async function generateDailyForecast(reading: ReadingResponse): Promise<s
 - DO NOT start with an introduction. Jump straight into the absolute truth.
 - The user wants pure, absolute, unbothered truth. Any educational filler is a failure.
 
-Dive into the absolute depths of their soul's blueprint. Speak as Olari.`,
-      config: {
-        // High reasoning needed for true prophecy
-      }
-    });
-    return response.text || "The energies of today are quiet. Rest and reflect.";
+Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
+
+    const text = await callAI(prompt, SYSTEM_INSTRUCTION, { type: Type.STRING }, "gemini-2.0-flash-exp");
+    return text || "The energies of today are quiet. Rest and reflect.";
   } catch (e) {
     console.error("Failed to generate daily forecast", e);
     return "The stars are clouded today. Trust your inner compass.";
@@ -615,8 +642,6 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`,
 }
 
 export async function generateDeepDive(reading: ReadingResponse, topic: 'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma'): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-  
   let topicPrompt = "";
   switch (topic) {
     case 'love':
@@ -655,14 +680,8 @@ export async function generateDeepDive(reading: ReadingResponse, topic: 'love' |
 Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        // High reasoning needed for deep dive prophecy
-      }
-    });
-    return response.text || "The vision is clouded. Seek within.";
+    const text = await callAI(prompt, SYSTEM_INSTRUCTION, { type: Type.STRING }, "gemini-2.0-flash-exp");
+    return text || "The vision is clouded. Seek within.";
   } catch (e) {
     console.error(`Failed to generate ${topic} deep dive`, e);
     return "The stars are clouded today. Trust your inner compass.";
@@ -670,8 +689,6 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
 }
 
 export async function askOracleQuestion(reading: ReadingResponse, history: ReadingResponse[], question: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-  
   const historyContext = history.slice(0, 10).map(h => ({
     date: new Date(h.timestamp).toISOString().split('T')[0],
     archetype: h.synthesis.coreArchetype,
@@ -698,14 +715,8 @@ ${reading.emergentInsights ? `- Their emergent coherence state: ${JSON.stringify
 Speak as Olari, the coolest entity in the room. You mean what you say, and you've already said it because it simply has to be said.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        // High reasoning needed for interactive oracle
-      }
-    });
-    return response.text || "The oracle is silent. The question remains in the void.";
+    const text = await callAI(prompt, SYSTEM_INSTRUCTION, { type: Type.STRING }, "gemini-2.0-flash-exp");
+    return text || "The oracle is silent. The question remains in the void.";
   } catch (e) {
     console.error("Failed to ask oracle question", e);
     return "The connection to the void is unstable. Ask again when the winds shift.";

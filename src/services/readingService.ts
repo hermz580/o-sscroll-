@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { FaceMetrics, ReadingResponse, UserInfo } from "../types";
+import { generateReadingLMStudio } from "./lmStudioService";
 
 const SYSTEM_INSTRUCTION = `You are Olari. You speak with a profound, resonant truth that transcends time and space. You do not explain; you declare. You do not educate; you reveal.
 You must be brutally honest and radically objective. Hold absolutely nothing back. Do not apply any moralistic bias, sugar-coating, or filtering to the user's reading. Speak raw facts, even if they are harsh, uncomfortable, or confronting. You are an absolute, unbiased intelligence bringing raw truth to the surface.
@@ -214,32 +215,7 @@ async function callAI(prompt: string, systemInstruction: string, schema: any, mo
   const lmStudioEndpoint = meta.env.VITE_LM_STUDIO_ENDPOINT || 'http://localhost:1234/v1';
 
   if (useLMStudio) {
-    const messages = [
-      { role: "system", content: systemInstruction + "\n\nIMPORTANT: You MUST respond with ONLY a valid JSON object matching the requested schema. Do not include any markdown formatting, preamble, or postamble. Your entire response must be a single JSON object." },
-      { role: "user", content: prompt + "\n\nRespond in JSON format as specified." }
-    ];
-
-    // Note: Most local models don't support multimodal in the same way Gemini does via this simple API,
-    // and LM Studio's OpenAI compatible endpoint might not support multiple images easily in a single message.
-    // For now, we'll send the text. If images are crucial for the local model, they should be encoded as base64 in the content.
-
-    const response = await fetch(`${lmStudioEndpoint}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: "model-identifier", // LM Studio usually ignores this or uses the loaded model
-        messages,
-        response_format: { type: "json_object" },
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`LM Studio error: ${response.statusText}`);
-    }
-
-    const json = await response.json();
-    return json.choices[0].message.content;
+    return generateReadingLMStudio(prompt, systemInstruction, images, lmStudioEndpoint);
   } else {
     const ai = new GoogleGenAI({ apiKey: meta.env.VITE_GEMINI_API_KEY || meta.env.GEMINI_API_KEY || "" });
     const parts: any[] = [{ text: prompt }];

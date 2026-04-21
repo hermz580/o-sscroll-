@@ -1,0 +1,3 @@
+## 2025-05-15 - [Hybrid Throttled Face Analysis]
+**Learning:** Running `face-api.js` inference (age, gender, expressions) in a high-frequency real-time loop (e.g., 250ms) is too heavy for most client-side environments. MediaPipe's landmark and blendshape detection is significantly faster but less feature-rich for certain high-level metrics.
+**Action:** Implement a "fast" mode in analysis services that bypasses heavy models. In observation loops, use a throttled hybrid approach: run the full analysis at a lower frequency (e.g., 1Hz) and the fast analysis at a higher frequency. This maintains data freshness while reducing CPU load by ~75%.

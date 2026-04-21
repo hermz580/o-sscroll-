@@ -68,6 +68,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const countIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const observationCounterRef = useRef<number>(0);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
 
@@ -215,7 +216,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       observationIntervalRef.current = setInterval(async () => {
         if (videoRef.current) {
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Performance optimization: Run full analysis (including face-api.js) only every 4th frame (~1s)
+            // Use fast mode (MediaPipe only) for the others to save CPU/GPU and battery.
+            const isFullAnalysis = observationCounterRef.current % 4 === 0;
+            const metrics = await analyzeFace(videoRef.current, { fast: !isFullAnalysis });
+            observationCounterRef.current++;
+
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {

@@ -14,23 +14,29 @@ app.post("/api/reading", async (req: Request, res: Response) => {
   try {
     const { name, origin, date, time, pdfText } = req.body;
 
-    const prompt = `
-      You are an expert astrologer reading from the higher heavens.
-      The user is named ${name}, born at ${origin}, date: ${date}, time: ${time}.
-      Here is additional information from their document:
-      ${pdfText || 'None provided'}
-      
-      Generate a deep, insightful, and lovely reading about their inner essence, 
-      aligning their birth alignment with their current position in space and time.
-      Speak with a "higher voice".
-    `;
+    const systemInstruction = `You are an expert astrologer reading from the higher heavens.
+Generate a deep, insightful, and lovely reading about the user's inner essence,
+aligning their birth alignment with their current position in space and time.
+Speak with a "higher voice".`;
+
+    const userDataText = `User Information:
+Name: ${name || 'Unknown'}
+Origin: ${origin || 'Unknown'}
+Date of Birth: ${date || 'Unknown'}
+Time of Birth: ${time || 'Unknown'}
+
+Additional Information from document:
+${pdfText || 'None provided'}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash-lite-preview",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts: [{ text: userDataText }] }],
+      config: {
+        systemInstruction: systemInstruction,
+      },
     });
 
-    res.json({ reading: response.candidates[0].content.parts[0].text });
+    res.json({ reading: response.candidates?.[0]?.content?.parts?.[0]?.text || '' });
   } catch (error) {
     console.error("Error generating reading:", error);
     res.status(500).json({ error: "Failed to generate reading." });

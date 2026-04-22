@@ -98,7 +98,7 @@ export default function App() {
 
   // Save history to localStorage
   useEffect(() => {
-    const saveToLocalStorage = (data: any[]) => {
+    const saveToLocalStorage = (data: ReadingResponse[]) => {
       try {
         const optimized = data.map(item => {
           const { userImageBase64, ...rest } = item;

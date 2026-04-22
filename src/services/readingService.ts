@@ -216,7 +216,10 @@ export async function generateReading(
   voiceFrequency?: number,
   spokenWords?: string[]
 ): Promise<ReadingResponse> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = new GoogleGenAI({
+    apiKey: "proxy-key",
+    httpOptions: { baseUrl: "/api/gemini" }
+  });
   
   const lifePath = getLifePath(userInfo.birthDate);
   const destiny = getNumerology(userInfo.name, 'destiny');
@@ -587,7 +590,10 @@ export async function generateReading(
 }
 
 export async function generateDailyForecast(reading: ReadingResponse): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = new GoogleGenAI({
+    apiKey: "proxy-key",
+    httpOptions: { baseUrl: "/api/gemini" }
+  });
   
   try {
     const response = await ai.models.generateContent({
@@ -615,7 +621,10 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`,
 }
 
 export async function generateDeepDive(reading: ReadingResponse, topic: 'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma'): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = new GoogleGenAI({
+    apiKey: "proxy-key",
+    httpOptions: { baseUrl: "/api/gemini" }
+  });
   
   let topicPrompt = "";
   switch (topic) {
@@ -670,7 +679,10 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
 }
 
 export async function askOracleQuestion(reading: ReadingResponse, history: ReadingResponse[], question: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = new GoogleGenAI({
+    apiKey: "proxy-key",
+    httpOptions: { baseUrl: "/api/gemini" }
+  });
   
   const historyContext = history.slice(0, 10).map(h => ({
     date: new Date(h.timestamp).toISOString().split('T')[0],

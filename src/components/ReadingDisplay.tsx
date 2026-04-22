@@ -236,6 +236,9 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
           <button
             onClick={() => setOpenId(openId === tradition.id ? null : tradition.id)}
             className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors"
+            aria-expanded={openId === tradition.id}
+            aria-controls={`tradition-content-${tradition.id}`}
+            id={`tradition-header-${tradition.id}`}
           >
             <div className="flex items-center gap-3">
               <div className="text-gold">{tradition.icon}</div>
@@ -256,6 +259,9 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
+                role="region"
+                id={`tradition-content-${tradition.id}`}
+                aria-labelledby={`tradition-header-${tradition.id}`}
               >
                 <div className="p-6 pt-0 border-t border-[#1a1a1a]/5">
                   <div className="markdown-body text-[#1a1a1a]/80 text-base leading-relaxed font-serif">
@@ -518,6 +524,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-resonance"
+            id="page-content-resonance"
+            role="tabpanel"
+            aria-labelledby="tab-resonance"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -581,6 +590,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-oracle"
+            id="page-content-oracle"
+            role="tabpanel"
+            aria-labelledby="tab-oracle"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -651,6 +663,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-breakdown"
+            id="page-content-breakdown"
+            role="tabpanel"
+            aria-labelledby="tab-breakdown"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -686,6 +701,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-omens"
+            id="page-content-omens"
+            role="tabpanel"
+            aria-labelledby="tab-omens"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -738,6 +756,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-cosmic"
+            id="page-content-cosmic"
+            role="tabpanel"
+            aria-labelledby="tab-cosmic"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -795,6 +816,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-deep-dives"
+            id="page-content-deep-dives"
+            role="tabpanel"
+            aria-labelledby="tab-deep-dives"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -909,6 +933,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-celestial-pdf"
+            id="page-content-celestial-pdf"
+            role="tabpanel"
+            aria-labelledby="tab-celestial-pdf"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -955,10 +982,18 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
       {/* Page Navigation Tabs */}
       <div className="flex justify-start sm:justify-center mb-8 overflow-x-auto px-4 pb-4 no-scrollbar">
-        <div className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap">
+        <div
+          role="tablist"
+          aria-label="Reading sections"
+          className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap"
+        >
           {pages.map((page, index) => (
             <button
               key={page.id}
+              role="tab"
+              aria-selected={currentPage === index}
+              aria-controls={`page-content-${page.id}`}
+              id={`tab-${page.id}`}
               onClick={() => setCurrentPage(index)}
               className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
                 currentPage === index 
@@ -1051,6 +1086,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1073,6 +1109,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>
@@ -1102,6 +1139,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                     }}
                     className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors"
                     title="Play word"
+                    aria-label="Speak word"
                   >
                     <Play className="w-3 h-3" />
                   </button>

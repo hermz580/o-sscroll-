@@ -92,20 +92,26 @@ const WORD_COLOR_BANK: Record<string, string> = {
 const colorizeText = (text: string) => {
   const parts = text.split(/(\s+)/g);
   return parts.map((part, i) => {
-    if (!part.trim()) return part;
+    if (!part.trim()) return <React.Fragment key={i}>{part}</React.Fragment>;
     
     const cleanWord = part.toLowerCase().replace(/[^\w]/g, '');
     const color = WORD_COLOR_BANK[cleanWord];
     
-    return (
-      <span 
-        key={i} 
-        className="reading-word transition-colors duration-300" 
-        style={color ? { '--word-color': color } as React.CSSProperties : undefined}
-      >
-        {part}
-      </span>
-    );
+    // Optimization: Only wrap in span if it's a special word with a color.
+    // This significantly reduces the number of DOM nodes (spans).
+    if (color) {
+      return (
+        <span
+          key={i}
+          className="reading-word transition-colors duration-300"
+          style={{ '--word-color': color } as React.CSSProperties}
+        >
+          {part}
+        </span>
+      );
+    }
+
+    return <React.Fragment key={i}>{part}</React.Fragment>;
   });
 };
 
@@ -327,10 +333,21 @@ interface ReadingDisplayProps {
 }
 
 export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset, onAskQuestion, isAskingQuestion }) => {
-  const auraHex = reading.synthesis?.auraColor?.startsWith('#') ? reading.synthesis.auraColor : '#c5a059';
-  const readableAuraColorLightBg = adjustColorForContrast(auraHex, true);
-  const readableAuraColorDarkBg = adjustColorForContrast(auraHex, false);
-  const textColorForOrb = getTextColorForBackground(auraHex);
+  const auraHex = useMemo(() =>
+    reading.synthesis?.auraColor?.startsWith('#') ? reading.synthesis.auraColor : '#c5a059'
+  , [reading.synthesis?.auraColor]);
+
+  const readableAuraColorLightBg = useMemo(() =>
+    adjustColorForContrast(auraHex, true)
+  , [auraHex]);
+
+  const readableAuraColorDarkBg = useMemo(() =>
+    adjustColorForContrast(auraHex, false)
+  , [auraHex]);
+
+  const textColorForOrb = useMemo(() =>
+    getTextColorForBackground(auraHex)
+  , [auraHex]);
 
   const markdownComponents: Components = useMemo(() => ({
     p: ({children}) => <p className="mb-6">{processChildren(children)}</p>,

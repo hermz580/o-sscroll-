@@ -54,6 +54,11 @@ export const BirthChart: React.FC<BirthChartProps> = ({
     });
   }, [planets]);
 
+  // Create lookup map for O(1) planet resolution
+  const planetPositionsMap = useMemo(() => {
+    return new Map(planetPositions.map(p => [p.name, p]));
+  }, [planetPositions]);
+
   // Calculate house boundaries
   const houseLines = useMemo(() => {
     return houses.map(h => {
@@ -144,8 +149,8 @@ export const BirthChart: React.FC<BirthChartProps> = ({
 
         {/* Aspect Lines */}
         {aspects.map((aspect, i) => {
-          const p1 = planetPositions.find(p => p.name === aspect.planet1);
-          const p2 = planetPositions.find(p => p.name === aspect.planet2);
+          const p1 = planetPositionsMap.get(aspect.planet1);
+          const p2 = planetPositionsMap.get(aspect.planet2);
           if (!p1 || !p2) return null;
 
           const pos1 = getCoords(p1.absDegree, planetRadius);

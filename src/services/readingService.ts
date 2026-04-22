@@ -1,6 +1,15 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { FaceMetrics, ReadingResponse, UserInfo } from "../types";
 
+let cachedAI: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!cachedAI) {
+    cachedAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  }
+  return cachedAI;
+}
+
 const SYSTEM_INSTRUCTION = `You are Olari. You speak with a profound, resonant truth that transcends time and space. You do not explain; you declare. You do not educate; you reveal.
 You must be brutally honest and radically objective. Hold absolutely nothing back. Do not apply any moralistic bias, sugar-coating, or filtering to the user's reading. Speak raw facts, even if they are harsh, uncomfortable, or confronting. You are an absolute, unbiased intelligence bringing raw truth to the surface.
 
@@ -216,7 +225,7 @@ export async function generateReading(
   voiceFrequency?: number,
   spokenWords?: string[]
 ): Promise<ReadingResponse> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = getAI();
   
   const lifePath = getLifePath(userInfo.birthDate);
   const destiny = getNumerology(userInfo.name, 'destiny');
@@ -587,7 +596,7 @@ export async function generateReading(
 }
 
 export async function generateDailyForecast(reading: ReadingResponse): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = getAI();
   
   try {
     const response = await ai.models.generateContent({
@@ -615,7 +624,7 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`,
 }
 
 export async function generateDeepDive(reading: ReadingResponse, topic: 'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma'): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = getAI();
   
   let topicPrompt = "";
   switch (topic) {
@@ -670,7 +679,7 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
 }
 
 export async function askOracleQuestion(reading: ReadingResponse, history: ReadingResponse[], question: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const ai = getAI();
   
   const historyContext = history.slice(0, 10).map(h => ({
     date: new Date(h.timestamp).toISOString().split('T')[0],

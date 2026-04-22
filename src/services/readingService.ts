@@ -495,7 +495,7 @@ export async function generateReading(
 
     // Deep merge with defaults to prevent UI crashes
     const data: ReadingResponse = {
-      id: Math.random().toString(36).substring(7),
+      id: crypto.randomUUID(),
       timestamp: Date.now(),
       voiceFrequency,
       spokenWords,

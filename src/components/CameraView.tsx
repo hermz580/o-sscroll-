@@ -31,12 +31,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let extractedText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
+      const pagePromises = Array.from({ length: pdf.numPages }, async (_, i) => {
+        const pageNum = i + 1;
+        const page = await pdf.getPage(pageNum);
         const content = await page.getTextContent();
-        extractedText += content.items.map((item: any) => item.str).join(' ') + '\n';
-      }
+        return content.items.map((item: any) => item.str).join(' ') + '\n';
+      });
+      const pagesText = await Promise.all(pagePromises);
+      const extractedText = pagesText.join('');
       setUserInfo(prev => ({ ...prev, pdfData: extractedText }));
     } catch (err) {
       console.error("PDF Parsing error:", err);

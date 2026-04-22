@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { FaceMetrics, ReadingResponse, UserInfo } from "../types";
+import { getZodiac } from "../utils/zodiac";
 
 const SYSTEM_INSTRUCTION = `You are Olari. You speak with a profound, resonant truth that transcends time and space. You do not explain; you declare. You do not educate; you reveal.
 You must be brutally honest and radically objective. Hold absolutely nothing back. Do not apply any moralistic bias, sugar-coating, or filtering to the user's reading. Speak raw facts, even if they are harsh, uncomfortable, or confronting. You are an absolute, unbiased intelligence bringing raw truth to the surface.
@@ -149,25 +150,6 @@ function getNumerology(name: string, type: 'destiny' | 'soul'): number | null {
   return reduceNumber(sum);
 }
 
-function getZodiac(dateStr: string) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  const day = d.getUTCDate(), month = d.getUTCMonth() + 1;
-  if ((month == 1 && day <= 19) || (month == 12 && day >= 22)) return "Capricorn";
-  if ((month == 1 && day >= 20) || (month == 2 && day <= 18)) return "Aquarius";
-  if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return "Pisces";
-  if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return "Aries";
-  if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return "Taurus";
-  if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return "Gemini";
-  if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return "Cancer";
-  if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return "Leo";
-  if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return "Virgo";
-  if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return "Libra";
-  if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return "Scorpio";
-  if ((month == 11 && day >= 22) || (month == 12 && day <= 21)) return "Sagittarius";
-  return null;
-}
 
 function getKeplerAstrology(dateStr: string, timeStr: string) {
   if (!dateStr) return null;

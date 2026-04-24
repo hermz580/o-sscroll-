@@ -1050,6 +1050,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
+                aria-label="Previous page"
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
              >
                 <ChevronLeft className="w-6 h-6" />
@@ -1072,6 +1073,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
+                aria-label="Next page"
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
              >
                 <ChevronRight className="w-6 h-6" />

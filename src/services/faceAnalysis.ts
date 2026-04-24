@@ -64,10 +64,11 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options?: { fast?: boolean }): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
+    const isFast = options?.fast ?? false;
     let mpResult;
     if (media instanceof HTMLVideoElement) {
       // Ensure video has dimensions and is ready before analyzing
@@ -84,11 +85,11 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+    const faResult = isFast ? null : await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
       .withFaceExpressions()
       .withAgeAndGender();
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || (!isFast && !faResult)) {
       return null;
     }
 
@@ -190,7 +191,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
 
     // Emotions
-    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+    const dominantEmotion = faResult ? Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0] : 'neutral';
 
     // Granular Data
     const granularData = {
@@ -200,6 +201,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mouthCenter: { x: landmarks[13].x, y: landmarks[13].y, z: landmarks[13].z }
     };
 
+    // BOLT: When fast mode is enabled, we provide landmark-based metrics but skip
+    // neural-net heavy attributes like age, gender, and expressions to save CPU.
     return {
       threeStops: {
         upper: upperStop,
@@ -233,7 +236,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       emotions: {
         dominant: dominantEmotion,
-        scores: faResult.expressions as any,
+        // BOLT: Placeholder scores for fast mode (only intended for background candid buffer)
+        scores: faResult ? (faResult.expressions as any) : { neutral: 1 },
         nuanced: {
           contempt,
           disdain,
@@ -243,8 +247,9 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      // BOLT: -1 and 'not-analyzed' are sentinel values for fast-path background checks
+      age: faResult ? faResult.age : -1,
+      gender: faResult ? faResult.gender : 'not-analyzed'
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

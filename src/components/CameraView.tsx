@@ -61,6 +61,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
+  const isObservingRef = useRef(false); // Concurrency guard for background observation
   const [candidFrame, setCandidFrame] = useState<string | null>(null);
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -213,22 +214,27 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
-          try {
-            const metrics = await analyzeFace(videoRef.current);
-            if (metrics) {
-              const image = captureCurrentFrame();
-              if (image) {
-                candidBufferRef.current.push({ metrics, image, timestamp: Date.now() });
-                // Keep only last 3 seconds (approx 12 frames at 250ms)
-                if (candidBufferRef.current.length > 12) {
-                  candidBufferRef.current.shift();
-                }
+        // Prevent overlapping asynchronous calls
+        if (isObservingRef.current || !videoRef.current) return;
+
+        isObservingRef.current = true;
+        try {
+          // Use fast mode for background observation to save CPU/Battery
+          const metrics = await analyzeFace(videoRef.current, { fast: true });
+          if (metrics) {
+            const image = captureCurrentFrame();
+            if (image) {
+              candidBufferRef.current.push({ metrics, image, timestamp: Date.now() });
+              // Keep only last 3 seconds (approx 12 frames at 250ms)
+              if (candidBufferRef.current.length > 12) {
+                candidBufferRef.current.shift();
               }
             }
-          } catch (e) {
-            // Silent fail for background observation
           }
+        } catch (e) {
+          // Silent fail for background observation
+        } finally {
+          isObservingRef.current = false;
         }
       }, 250);
     } else {

@@ -1,0 +1,3 @@
+## 2025-05-14 - [Background AI Inference Optimization]
+**Learning:** Background observation loops in multimodal apps can easily saturate the CPU if they perform full neural network inference (e.g., expressions/age/gender) at high frequencies (250ms). Implementing a "fast" mode that only extracts landmarks/blendshapes provides enough data for candidacy selection while saving significant resources. Furthermore, asynchronous calls in `setInterval` must always use a mutable ref as a concurrency guard to prevent overlapping execution and UI jitter.
+**Action:** Always implement a `fast` mode for passive background sensing and use `isProcessingRef` patterns in React effects for high-frequency async loops.

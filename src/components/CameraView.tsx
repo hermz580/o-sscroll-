@@ -215,7 +215,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       observationIntervalRef.current = setInterval(async () => {
         if (videoRef.current) {
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {

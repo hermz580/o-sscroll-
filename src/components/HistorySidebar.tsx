@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { History, Trash2, X } from 'lucide-react';
+import { History, Trash2, X, AlertCircle } from 'lucide-react';
 import { ReadingResponse } from '../types';
 
 interface HistorySidebarProps {
@@ -18,32 +18,46 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
-  return (
-    <>
-      {/* Overlay */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-bg/60 backdrop-blur-sm z-40"
-        />
-      )}
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-      {/* Sidebar */}
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: isOpen ? 0 : '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="fixed top-0 right-0 h-full w-full max-w-sm glass-morphism border-l border-white/10 z-50 flex flex-col"
-      >
+  // Reset confirmation state when sidebar closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDeleteConfirmId(null);
+    }
+  }, [isOpen]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-bg/60 backdrop-blur-sm z-40"
+          />
+
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed top-0 right-0 h-full w-full max-w-sm glass-morphism border-l border-white/10 z-50 flex flex-col"
+          >
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3 text-gold">
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            aria-label="Close history"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -84,11 +98,29 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(reading.id);
+                        if (deleteConfirmId === reading.id) {
+                          onDelete(reading.id);
+                          setDeleteConfirmId(null);
+                        } else {
+                          setDeleteConfirmId(reading.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      onMouseLeave={() => deleteConfirmId === reading.id && setDeleteConfirmId(null)}
+                      className={`
+                        ${deleteConfirmId === reading.id ? 'opacity-100 bg-red-500/20 text-red-400 px-2' : 'opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400'}
+                        focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-500/50 outline-none
+                        rounded-md transition-all text-on-surface/20 flex items-center gap-1.5
+                      `}
+                      aria-label={deleteConfirmId === reading.id ? "Confirm deletion" : "Delete reading"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {deleteConfirmId === reading.id ? (
+                        <>
+                          <AlertCircle className="w-3 h-3" />
+                          <span className="text-[10px] font-bold uppercase tracking-tighter">Confirm?</span>
+                        </>
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                   <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>
@@ -108,7 +140,9 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             )}
           </AnimatePresence>
         </div>
-      </motion.div>
-    </>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 };

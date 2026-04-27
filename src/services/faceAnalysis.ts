@@ -64,7 +64,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +87,19 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    // Optimization: Skip expensive face-api.js inference (expressions, age, gender) if fast mode is requested.
+    // This reduces CPU/GPU load significantly during background observation.
+    const faResult = options.fast
+      ? null
+      : await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+          .withFaceExpressions()
+          .withAgeAndGender();
+
+    if (!options.fast && !faResult) {
       return null;
     }
 
@@ -189,8 +200,10 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     // Micro-expression Intensity: Sum of all small facial movements
     const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
 
-    // Emotions
-    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+    // Emotions - use face-api.js results if available, otherwise default to neutral
+    const dominantEmotion = faResult
+      ? Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+      : 'neutral';
 
     // Granular Data
     const granularData = {
@@ -233,7 +246,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       emotions: {
         dominant: dominantEmotion,
-        scores: faResult.expressions as any,
+        scores: faResult ? (faResult.expressions as any) : { neutral: 1 },
         nuanced: {
           contempt,
           disdain,
@@ -243,8 +256,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: faResult ? faResult.age : 0,
+      gender: faResult ? faResult.gender : 'unknown'
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

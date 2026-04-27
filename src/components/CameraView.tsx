@@ -61,6 +61,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
+  const isObservingRef = useRef(false);
   const [candidFrame, setCandidFrame] = useState<string | null>(null);
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -153,10 +154,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
+      let isProcessing = false;
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        if (!ctx || video.paused || video.ended || isProcessing) return;
         
+        isProcessing = true;
         const landmarks = await getLandmarks(video);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -195,6 +198,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
               setMultiFaceDetected(false);
           }
         }
+        isProcessing = false;
       }, 100);
     } else {
       if (landmarkIntervalRef.current) clearInterval(landmarkIntervalRef.current);
@@ -213,9 +217,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isObservingRef.current) {
+          isObservingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Optimization: Use fast mode for background observation to save CPU/GPU.
+            // We only need the blendshapes for micro-expressions, which MediaPipe provides.
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +235,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isObservingRef.current = false;
           }
         }
       }, 250);

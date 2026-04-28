@@ -69,6 +69,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isObservingRef = useRef(false);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
 
   const startCamera = async () => {
@@ -213,9 +214,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isObservingRef.current) {
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            isObservingRef.current = true;
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +230,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isObservingRef.current = false;
           }
         }
       }, 250);

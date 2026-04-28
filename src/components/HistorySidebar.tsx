@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { History, Trash2, X } from 'lucide-react';
 import { ReadingResponse } from '../types';
@@ -18,6 +18,15 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Reset confirmation state when sidebar closes
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmDeleteId(null);
+    }
+  }, [isOpen]);
+
   return (
     <>
       {/* Overlay */}
@@ -43,7 +52,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors"
+            aria-label="Close sidebar"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -84,11 +97,21 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(reading.id);
+                        if (confirmDeleteId === reading.id) {
+                          onDelete(reading.id);
+                          setConfirmDeleteId(null);
+                        } else {
+                          setConfirmDeleteId(reading.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      className={`${confirmDeleteId === reading.id ? 'opacity-100 bg-red-500/20 text-red-400 px-3' : 'opacity-0 group-hover:opacity-100 p-1.5'} hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20 flex items-center gap-1.5`}
+                      aria-label={confirmDeleteId === reading.id ? "Confirm deletion" : "Delete reading"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {confirmDeleteId === reading.id ? (
+                        <span className="text-[10px] font-bold uppercase tracking-tighter">Confirm?</span>
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                   <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>

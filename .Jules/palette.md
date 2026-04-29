@@ -1,0 +1,3 @@
+## 2025-05-14 - [Double-Confirmation & Accessibility in Sidebars]
+**Learning:** Destructive actions in sidebars benefit from local state confirmation buttons that toggle between an icon and a textual "Confirm?" prompt. This prevents accidental data loss and provides a tactile, "weighty" feel to the action. Accessibility is improved by using ARIA labels on these dynamic buttons and ensuring they are visible and focused when interacted with.
+**Action:** Implement the `confirmingId` local state pattern for deletions in list-based views. Reset this state when the container (sidebar/modal) is closed.

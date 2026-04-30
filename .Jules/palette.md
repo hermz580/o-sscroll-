@@ -1,0 +1,3 @@
+## 2025-04-30 - Destructive Action Safety & Sidebar Hygiene
+**Learning:** For destructive actions in persistent sidebars, a simple "Trash" icon is risky. Implementing a "double-confirmation" toggle with local state (`deletingId`) provides a safe, low-friction undo/confirmation pattern. Crucially, these interactive states must be reset when the sidebar/modal is closed to prevent the user from being greeted by a "Confirm?" prompt when they next open the panel.
+**Action:** Always synchronize transient interactive UI states (like confirmation prompts or pending deletes) with the visibility prop (`isOpen`) using a `useEffect` hook to ensure a clean state on every interaction cycle.

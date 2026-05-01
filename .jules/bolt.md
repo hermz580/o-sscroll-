@@ -1,0 +1,3 @@
+## 2025-05-01 - Optimizing background face analysis loop
+**Learning:** Background observation loops using heavy ML models (like face-api.js) can cause significant CPU overhead and UI stuttering due to task piling. Implementing concurrency guards with refs and a "fast" analysis mode that skips non-essential neural network inference (while preserving cheaper landmark-based metrics) significantly improves responsiveness.
+**Action:** Use mutable refs as concurrency guards in high-frequency async intervals and implement multi-tiered analysis modes to balance real-time feedback with computational cost.

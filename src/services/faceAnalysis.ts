@@ -5,6 +5,11 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Cache for expensive inferences (face-api.js)
+let cachedExpressions: any = null;
+let cachedAge: number | null = null;
+let cachedGender: string | null = null;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +69,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, fast = false): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,13 +89,32 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult = null;
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    if (!fast) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        cachedExpressions = faResult.expressions;
+        cachedAge = faResult.age;
+        cachedGender = faResult.gender;
+      }
+    }
+
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
       return null;
     }
+
+    // If fast mode and we have no cache, or if face-api failed in slow mode
+    if (!faResult && (!fast || !cachedExpressions)) {
+      return null;
+    }
+
+    const expressions = faResult?.expressions || cachedExpressions;
+    const age = faResult?.age ?? (cachedAge as number);
+    const gender = faResult?.gender || (cachedGender as string);
 
     const landmarks = mpResult.faceLandmarks[0];
     const blendshapes = mpResult.faceBlendshapes?.[0]?.categories || [];
@@ -190,7 +214,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
 
     // Emotions
-    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+    const dominantEmotion = Object.entries(expressions).reduce((a, b) => (a[1] as number) > (b[1] as number) ? a : b)[0];
 
     // Granular Data
     const granularData = {
@@ -233,7 +257,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       emotions: {
         dominant: dominantEmotion,
-        scores: faResult.expressions as any,
+        scores: expressions as any,
         nuanced: {
           contempt,
           disdain,
@@ -243,8 +267,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age,
+      gender
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

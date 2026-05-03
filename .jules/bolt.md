@@ -1,0 +1,3 @@
+## 2025-05-21 - [Optimizing Real-time ML Inference Loops]
+**Learning:** Real-time ML processing via `setInterval` or `requestAnimationFrame` can lead to "task piling" where new inference tasks start before previous ones finish, causing CPU spikes and UI stutter. Additionally, performing full inferences (e.g., age, gender, expressions) on every frame is often redundant for background observation.
+**Action:** Use mutable refs (`isProcessingRef`) as concurrency guards to skip cycles if an inference is already in progress. Implement a "fast-path" for high-frequency checks that uses cached values for secondary/stable metrics (age, gender) while only calculating primary structural data (landmarks).

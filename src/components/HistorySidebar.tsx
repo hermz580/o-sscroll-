@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { History, Trash2, X } from 'lucide-react';
+import { History, Trash2, X, Check } from 'lucide-react';
 import { ReadingResponse } from '../types';
 
 interface HistorySidebarProps {
@@ -18,6 +18,14 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDeleteConfirmId(null);
+    }
+  }, [isOpen]);
+
   return (
     <>
       {/* Overlay */}
@@ -43,7 +51,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors"
+            aria-label="Close past visions"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -84,11 +96,25 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(reading.id);
+                        if (deleteConfirmId === reading.id) {
+                          onDelete(reading.id);
+                          setDeleteConfirmId(null);
+                        } else {
+                          setDeleteConfirmId(reading.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      className={`opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 rounded-md transition-all ${
+                        deleteConfirmId === reading.id
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'hover:bg-red-500/10 hover:text-red-400 text-on-surface/20'
+                      }`}
+                      aria-label={deleteConfirmId === reading.id ? "Confirm deletion" : "Delete vision"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {deleteConfirmId === reading.id ? (
+                        <Check className="w-3.5 h-3.5" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                   <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>

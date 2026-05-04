@@ -5,6 +5,13 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Caching secondary metrics to avoid expensive re-computation in 'fast' mode.
+// We cache age and gender as they are relatively static.
+let cachedSecondaryMetrics: {
+  age: number;
+  gender: string;
+} | null = null;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +71,13 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+/**
+ * Analyzes facial metrics using MediaPipe and face-api.js.
+ * @param media The video or image element to analyze.
+ * @param fast If true, skips expensive face-api.js inferences (emotions, age, gender)
+ *             and uses cached values if available.
+ */
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, fast = false): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +97,42 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    let faResult;
+    if (fast && cachedSecondaryMetrics) {
+      // Use cached values for secondary metrics to save CPU/GPU cycles.
+      // We skip expression detection in fast mode as it is computationally heavy.
+      faResult = {
+        expressions: { neutral: 1, happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0 },
+        age: cachedSecondaryMetrics.age,
+        gender: cachedSecondaryMetrics.gender
+      };
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        // Update cache with fresh values for static attributes
+        cachedSecondaryMetrics = {
+          age: faResult.age,
+          gender: faResult.gender
+        };
+      } else if (fast) {
+        // If we're in fast mode but have no cache, we still need a default faResult to continue
+        // even if it's less accurate, to avoid breaking the background loop.
+        faResult = {
+          expressions: { neutral: 1, happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0 },
+          age: 25,
+          gender: 'unknown'
+        };
+      }
+    }
+
+    if (!faResult) {
       return null;
     }
 

@@ -1,0 +1,3 @@
+## 2026-05-06 - Double-Confirmation and AnimatePresence for Sidebars
+**Learning:** For destructive actions like deletion in a list, a double-confirmation pattern (click once to show "Confirm?", click again to delete) provides a safe, low-friction UX without the need for modal interruptions. Additionally, when using Framer Motion for sidebars, wrapping the entire conditional block in `AnimatePresence` and rendering it based on the `isOpen` state is necessary to ensure exit animations trigger and to properly remove elements from the DOM/accessibility tree when closed.
+**Action:** Implement double-confirmation with local state for deletions and always use `AnimatePresence` for components that slide in/out of view.

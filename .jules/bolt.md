@@ -1,0 +1,3 @@
+## 2025-05-15 - Targeted ML Inference for Background Observation
+**Learning:** Background observation loops that run at high frequency (e.g., 250ms) can cause significant CPU/GPU thermal pressure if full neural network analysis (landmarks, expressions, age, gender) is performed every tick. While landmarks and expressions are needed for real-time UI and 'candid' frame selection, age and gender are static and can be safely cached after the first successful detection.
+**Action:** Implement 'fast' modes for ML services that allow skipping static or secondary inferences, using module-level or state-managed caches for 'sticky' metrics during high-frequency tasks.

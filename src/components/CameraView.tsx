@@ -215,7 +215,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       observationIntervalRef.current = setInterval(async () => {
         if (videoRef.current) {
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Use fast mode for background observation to save CPU/GPU resources
+            const metrics = await analyzeFace(videoRef.current, true);
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {

@@ -5,6 +5,10 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Cache for last known age and gender to speed up background observation
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +68,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, fast = false): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +88,16 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: Skip expensive age/gender detection in fast mode (used for background observation)
+    let faResult: any;
+    const baseDetection = faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+      .withFaceExpressions();
+
+    if (fast) {
+      faResult = await baseDetection;
+    } else {
+      faResult = await (baseDetection as any).withAgeAndGender();
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -200,7 +211,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mouthCenter: { x: landmarks[13].x, y: landmarks[13].y, z: landmarks[13].z }
     };
 
-    return {
+    const result: FaceMetrics = {
       threeStops: {
         upper: upperStop,
         middle: middleStop,
@@ -243,9 +254,17 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: fast ? (lastAge ?? 30) : (faResult.age || lastAge || 30),
+      gender: fast ? (lastGender ?? "unknown") : (faResult.gender || lastGender || "unknown")
     };
+
+    // Update cache if not in fast mode
+    if (!fast && faResult && faResult.age) {
+      lastAge = faResult.age;
+      lastGender = faResult.gender;
+    }
+
+    return result;
   } catch (error) {
     console.error("Error during face analysis:", error);
     return null;

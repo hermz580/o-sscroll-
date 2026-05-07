@@ -1,0 +1,3 @@
+## 2024-05-08 - Double-confirmation pattern for history deletion
+**Learning:** Implementing a double-confirmation pattern for destructive actions like data deletion significantly reduces accidental loss while keeping the UI clean. Using local state to toggle between a default icon and a 'Confirm?' state (Checkmark/Red button) provides clear visual feedback. Synchronizing this state with the component's visibility (e.g., closing a sidebar) ensures the state is reset and ready for the next interaction.
+**Action:** Use a local `deletingId` state combined with `onMouseLeave` and `useEffect` (on open/close) to manage non-modal confirmation flows for list items.

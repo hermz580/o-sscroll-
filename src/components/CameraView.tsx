@@ -68,6 +68,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const countIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const observationCounterRef = useRef(0);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
 
@@ -215,7 +216,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       observationIntervalRef.current = setInterval(async () => {
         if (videoRef.current) {
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Periodically run a full scan every 10 frames (approx 2.5s) to refresh cached age/gender
+            const mode = observationCounterRef.current % 10 === 0 ? 'full' : 'fast';
+            const metrics = await analyzeFace(videoRef.current, mode);
+            observationCounterRef.current++;
+
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {

@@ -4,6 +4,8 @@ import { FaceMetrics } from "../types";
 
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
+let lastAge: number = 0;
+let lastGender: string = 'unknown';
 
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
@@ -64,7 +66,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, mode: 'full' | 'fast' = 'full'): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +86,15 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult: any;
+    if (mode === 'fast') {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions();
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -243,8 +251,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: mode === 'full' ? (lastAge = faResult.age!) : lastAge,
+      gender: mode === 'full' ? (lastGender = faResult.gender!) : lastGender
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

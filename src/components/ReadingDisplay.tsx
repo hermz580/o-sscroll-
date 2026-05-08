@@ -236,6 +236,8 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
           <button
             onClick={() => setOpenId(openId === tradition.id ? null : tradition.id)}
             className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors"
+            aria-expanded={openId === tradition.id}
+            aria-controls={`tradition-content-${tradition.id}`}
           >
             <div className="flex items-center gap-3">
               <div className="text-gold">{tradition.icon}</div>
@@ -252,6 +254,7 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
           <AnimatePresence>
             {openId === tradition.id && (
               <motion.div
+                id={`tradition-content-${tradition.id}`}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -1051,6 +1054,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1073,6 +1077,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
                 className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>

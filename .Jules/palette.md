@@ -1,0 +1,3 @@
+## 2025-05-14 - Double-Confirmation for Deletion & Accordion Accessibility
+**Learning:** Destructive actions like deleting history items benefit significantly from a double-confirmation pattern (e.g., toggling to a "Confirm?" state). This reduces accidental data loss while maintaining a clean UI. Additionally, complex interactive components like sidebars and accordions must have synchronized state (e.g., resetting confirmation state on sidebar close) and proper ARIA relationships (`aria-controls`, `aria-expanded`) to be truly accessible.
+**Action:** Use local state for multi-step interactions and ensure `useEffect` hooks synchronize this state with parent visibility props. Always implement `id`, `aria-controls`, and `aria-expanded` for collapsible regions.

@@ -95,6 +95,13 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const landmarks = mpResult.faceLandmarks[0];
     const blendshapes = mpResult.faceBlendshapes?.[0]?.categories || [];
 
+    // Performance: Create a lookup map for blendshapes to avoid repeated O(N) searches
+    const shapeScores: Record<string, number> = {};
+    for (let i = 0; i < blendshapes.length; i++) {
+      const category = blendshapes[i];
+      shapeScores[category.categoryName] = category.score;
+    }
+
     // Mian Xiang: Three Stops
     // Index 10: Forehead center top
     // Index 168: Between eyebrows (approx)
@@ -169,7 +176,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const earProminence = Math.abs(landmarks[127].x - landmarks[234].x); // Distance from cheek edge
 
     // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes
-    const getShape = (name: string) => blendshapes.find(c => c.categoryName === name)?.score || 0;
+    // Performance: Use the pre-computed shapeScores map for O(1) lookup
+    const getShape = (name: string) => shapeScores[name] || 0;
     
     // Contempt: Asymmetry in mouth corners (smile/dimple)
     const contempt = Math.abs(getShape('mouthSmileLeft') - getShape('mouthSmileRight')) + 

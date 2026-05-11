@@ -1100,8 +1100,9 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                       const utterance = new SpeechSynthesisUtterance(highlightedWord.word);
                       window.speechSynthesis.speak(utterance);
                     }}
-                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors"
+                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
                     title="Play word"
+                    aria-label={`Play pronunciation of ${highlightedWord.word}`}
                   >
                     <Play className="w-3 h-3" />
                   </button>

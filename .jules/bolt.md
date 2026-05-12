@@ -1,0 +1,3 @@
+## 2025-05-15 - Fast-path Inference for Background Face Observation
+**Learning:** Background observation loops (e.g., 250ms) that perform full neural network inferences (face detection + expressions + age/gender) create significant CPU/GPU overhead. Skipping secondary inferences like age/gender—which don't change frequently—while retaining primary ones like expressions significantly reduces resource consumption. However, a pure 'fast' path can lead to stale data if the cache is never updated.
+**Action:** Implement an optional 'fast' path in ML analysis services that leverages module-level caching for secondary data, and ensure the calling loop periodically triggers a 'full' scan (e.g., every 15 cycles) to refresh the cache.

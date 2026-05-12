@@ -5,6 +5,11 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Performance Cache: Store last known age and gender to allow for "fast" scans
+// that skip these expensive neural network inferences during background observation.
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +69,13 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+/**
+ * Analyzes a face using MediaPipe and face-api.js.
+ * @param media The video or image element to analyze.
+ * @param fast If true, skips expensive age and gender detection, using cached values instead.
+ *             This is ideal for high-frequency background observation.
+ */
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, fast = false): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +95,21 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // BOLT OPTIMIZATION: Conditional inference path.
+    // Full scan includes age/gender (heavy), fast scan only does expressions (lighter).
+    let faResult: any;
+    const detector = faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+      .withFaceExpressions();
+
+    if (fast) {
+      faResult = await detector;
+    } else {
+      faResult = await detector.withAgeAndGender();
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -243,8 +266,9 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      // Use result from current scan or fall back to last known cached value
+      age: faResult.age ?? lastAge ?? 25,
+      gender: faResult.gender ?? lastGender ?? 'unknown'
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

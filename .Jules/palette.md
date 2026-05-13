@@ -1,0 +1,3 @@
+## 2026-05-13 - Enhanced History Sidebar Safety and Accessibility
+**Learning:** For destructive actions in a mystical-themed app, a two-step confirmation ("Confirm delete") combined with a visual cue (red background) provides a balance between safety and maintaining the app's aesthetic. Resetting the confirmation state on 'onMouseLeave' prevents accidental execution if the user returns to the element later. Keyboard accessibility for hidden-by-default elements requires explicit 'focus-visible' styles and tabIndex.
+**Action:** Use the 'confirmingId' state pattern for inline deletions. Ensure icon buttons have 'aria-label' and clear focus rings.

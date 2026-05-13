@@ -5,6 +5,10 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Performance cache for secondary metrics
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +68,15 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+/**
+ * Analyzes facial metrics using MediaPipe and face-api.js.
+ * @param media Video or Image element to analyze
+ * @param options.fast If true, skips expensive age/gender detection and uses cached values
+ */
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options?: { fast?: boolean }
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +96,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult;
+    if (options?.fast) {
+      // PERFORMANCE: Skip expensive age/gender inference in fast mode.
+      // Expected impact: Reduces per-frame face-api.js processing time by ~30-50%
+      // by skipping two additional neural network passes.
+      const detection = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions();
+
+      if (detection) {
+        faResult = {
+          ...detection,
+          age: lastAge || 0,
+          gender: lastGender || 'unknown'
+        };
+      }
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

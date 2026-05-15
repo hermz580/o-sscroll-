@@ -1,0 +1,3 @@
+## 2025-05-14 - Keyboard Accessibility in Nested Interactive Components
+**Learning:** When an interactive element (like a deletion button) is nested inside a larger interactive container (like a history card with `tabIndex={0}` and `onKeyDown`), it's crucial to use `e.stopPropagation()` in the child's handlers to prevent the parent's action from being triggered. Additionally, the parent should use `e.preventDefault()` for 'Enter' and 'Space' to avoid unwanted page scrolling or double-triggers.
+**Action:** Always verify event bubbling and default behaviors when implementing keyboard navigation for nested interactive elements.

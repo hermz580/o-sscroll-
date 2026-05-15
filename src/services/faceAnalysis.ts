@@ -4,6 +4,8 @@ import { FaceMetrics } from "../types";
 
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
+let lastAge = 25;
+let lastGender = "unknown";
 
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
@@ -64,7 +66,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +86,21 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult;
+    if (options.fast) {
+      // Optimization: Skip expensive age/gender detection in fast mode (background scans)
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions();
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -94,6 +108,12 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
 
     const landmarks = mpResult.faceLandmarks[0];
     const blendshapes = mpResult.faceBlendshapes?.[0]?.categories || [];
+
+    // Optimization: Build a lookup map for blendshapes to avoid O(N) searching for each feature
+    const shapeMap = blendshapes.reduce((acc, c) => {
+      acc[c.categoryName] = c.score;
+      return acc;
+    }, {} as Record<string, number>);
 
     // Mian Xiang: Three Stops
     // Index 10: Forehead center top
@@ -169,7 +189,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const earProminence = Math.abs(landmarks[127].x - landmarks[234].x); // Distance from cheek edge
 
     // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes
-    const getShape = (name: string) => blendshapes.find(c => c.categoryName === name)?.score || 0;
+    const getShape = (name: string) => shapeMap[name] || 0;
     
     // Contempt: Asymmetry in mouth corners (smile/dimple)
     const contempt = Math.abs(getShape('mouthSmileLeft') - getShape('mouthSmileRight')) + 
@@ -243,8 +263,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: (faResult as any).age ?? lastAge,
+      gender: (faResult as any).gender ?? lastGender
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

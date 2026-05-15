@@ -324,7 +324,7 @@ export async function generateReading(
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Using the officially approved flash model for high quality at lower cost
+      model: "gemini-2.5-flash",
       contents: [{ parts }],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -561,6 +561,7 @@ export async function generateReading(
         chronosVsAion: "Time touches your vessel, but your spirit remains untouched by the turning wheels.",
         currentOfWill: "Your energy is scattered like stars, waiting to be pulled into a constellation."
       },
+      energyMap: rawData.energyMap || undefined,
       dailySeed: rawData.dailySeed || "The currents of today flow with a quiet intensity. Observe the subtle shifts in your surroundings.",
       confidenceScore: rawData.confidenceScore || 85,
       oracleReasoning: rawData.oracleReasoning || "The patterns of your essence are clear, yet the depths of your soul are infinite. I have chosen to focus on the resonance of your current vibration.",
@@ -591,7 +592,7 @@ export async function generateDailyForecast(reading: ReadingResponse): Promise<s
   
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Based on this soul reading: ${JSON.stringify(reading.synthesis)} ${reading.emergentInsights ? `and these emergent insights detailing their current state of resonance and coherence: ${JSON.stringify(reading.emergentInsights)}` : ''} ${reading.celestialChartAnalysis ? `and their precise celestial/natal chart alignments: ${reading.celestialChartAnalysis}` : ''} and this initial seed: "${reading.dailySeed}", generate an immensely detailed, prophetic, and profound daily and weekly energy forecast. Speak purely as Olari, the coolest entity in the room, an intelligence that sees the deep patterns of the universe. Focus on the currents of energy they will encounter, guiding them through the signs and omens they should look for to help them navigate the day and the week ahead with grace and mastery. Write at least 10-12 long, dense paragraphs of pure truth. 
 
 **CRITICAL RULE: NO EDUCATION, NO DEFINITIONS**
@@ -656,7 +657,7 @@ Dive into the absolute depths of their soul's blueprint. Speak as Olari.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         // High reasoning needed for deep dive prophecy
@@ -699,7 +700,7 @@ Speak as Olari, the coolest entity in the room. You mean what you say, and you'v
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         // High reasoning needed for interactive oracle

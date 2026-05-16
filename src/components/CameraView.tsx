@@ -22,6 +22,8 @@ const SACRED_WORDS = [
 export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const persistentCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isProcessingRef = useRef(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +70,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const countIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const observationCounterRef = useRef(0);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
 
@@ -213,9 +216,15 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isProcessingRef.current) {
+          isProcessingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Performance: Periodic full scan (every 15 cycles) to refresh age/gender/emotions
+            // while keeping background observation light for most frames.
+            const isFullScan = observationCounterRef.current % 15 === 0;
+            const metrics = await analyzeFace(videoRef.current, { fast: !isFullScan });
+            observationCounterRef.current++;
+
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +237,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingRef.current = false;
           }
         }
       }, 250);
@@ -274,7 +285,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const captureCurrentFrame = (): string | null => {
     if (!videoRef.current) return null;
     try {
-      const canvas = document.createElement('canvas');
+      // Performance: Reuse a persistent offscreen canvas to avoid GC pressure from element creation
+      if (!persistentCanvasRef.current) {
+        persistentCanvasRef.current = document.createElement('canvas');
+      }
+      const canvas = persistentCanvasRef.current!;
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext('2d');

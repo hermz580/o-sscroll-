@@ -1,0 +1,3 @@
+## 2025-05-15 - Optimizing High-Frequency ML Observation Loops
+**Learning:** Background observation loops that run heavy neural network inferences (like face-api.js) at high frequencies (250ms) can easily saturate the CPU/GPU, leading to UI lag and overlapping execution. Implementing a "fast" mode that caches secondary metrics (age, gender, expressions) and only refreshes them every ~15 frames, while keeping primary structural landmarks real-time, significantly reduces resource usage without impacting perceived accuracy.
+**Action:** Always implement concurrency guards (Refs + try/finally) and a tiered inference strategy (real-time primary data vs. throttled secondary data) for background ML monitoring tasks.

@@ -61,6 +61,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
+
+  // Performance Guards
+  const isProcessingRef = useRef(false);
+  const isDrawingRef = useRef(false);
   const [candidFrame, setCandidFrame] = useState<string | null>(null);
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -155,45 +159,51 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const ctx = canvas.getContext('2d');
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        // PERFORMANCE GUARD: Prevent overlapping async draw calls (frame piling)
+        if (!ctx || video.paused || video.ended || isDrawingRef.current) return;
         
-        const landmarks = await getLandmarks(video);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (landmarks) {
-          ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
-          ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
-          ctx.lineWidth = 0.5;
+        isDrawingRef.current = true;
+        try {
+          const landmarks = await getLandmarks(video);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          landmarks.forEach(faceLandmarks => {
-            // Draw points
-            faceLandmarks.forEach((pt: any) => {
-              const x = pt.x * canvas.width;
-              const y = pt.y * canvas.height;
-              ctx.beginPath();
-              ctx.arc(x, y, 1, 0, Math.PI * 2);
-              ctx.fill();
-            });
+          if (landmarks) {
+            ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
+            ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
+            ctx.lineWidth = 0.5;
 
-            // Draw some connecting lines for "Sacred Geometry" feel
-            ctx.beginPath();
-            faceLandmarks.forEach((pt: any, i: number) => {
-              if (i % 20 === 0) { // Sparse connections for aesthetic
+            landmarks.forEach(faceLandmarks => {
+              // Draw points
+              faceLandmarks.forEach((pt: any) => {
                 const x = pt.x * canvas.width;
                 const y = pt.y * canvas.height;
-                ctx.moveTo(x, y);
-                const next = faceLandmarks[(i + 20) % faceLandmarks.length];
-                ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
-              }
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, Math.PI * 2);
+                ctx.fill();
+              });
+
+              // Draw some connecting lines for "Sacred Geometry" feel
+              ctx.beginPath();
+              faceLandmarks.forEach((pt: any, i: number) => {
+                if (i % 20 === 0) { // Sparse connections for aesthetic
+                  const x = pt.x * canvas.width;
+                  const y = pt.y * canvas.height;
+                  ctx.moveTo(x, y);
+                  const next = faceLandmarks[(i + 20) % faceLandmarks.length];
+                  ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
+                }
+              });
+              ctx.stroke();
             });
-            ctx.stroke();
-          });
-          
-          if (landmarks.length > 1) {
-              setMultiFaceDetected(true);
-          } else {
-              setMultiFaceDetected(false);
+
+            if (landmarks.length > 1) {
+                setMultiFaceDetected(true);
+            } else {
+                setMultiFaceDetected(false);
+            }
           }
+        } finally {
+          isDrawingRef.current = false;
         }
       }, 100);
     } else {
@@ -213,9 +223,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        // PERFORMANCE GUARD: Prevent overlapping async analysis calls
+        if (videoRef.current && !isProcessingRef.current) {
+          isProcessingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +240,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingRef.current = false;
           }
         }
       }, 250);

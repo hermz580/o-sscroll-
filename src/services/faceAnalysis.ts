@@ -5,6 +5,12 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Cache for performance-optimized "fast" mode
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: faceapi.FaceExpressions | undefined;
+let scanCounter = 0;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +70,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +90,26 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: Skip expensive face-api.js inferences in fast mode unless due for refresh
+    const shouldRefresh = !options.fast || scanCounter % 15 === 0 || !lastExpressions;
+
+    let faResult;
+    if (shouldRefresh) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+      scanCounter = 0;
+    } else {
+      faResult = { age: lastAge!, gender: lastGender!, expressions: lastExpressions! };
+    }
+
+    scanCounter++;
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -122,12 +145,12 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     // fWHR: Face Width to Height Ratio
     // Width: distance between zygomatic arches (approx indices 454 and 234)
     // Height: distance between brow and upper lip (approx indices 168 and 164)
-    const faceWidth = Math.sqrt(Math.pow(landmarks[454].x - landmarks[234].x, 2) + Math.pow(landmarks[454].y - landmarks[234].y, 2));
-    const faceHeight = Math.sqrt(Math.pow(landmarks[168].x - landmarks[164].x, 2) + Math.pow(landmarks[168].y - landmarks[164].y, 2));
+    const faceWidth = Math.hypot(landmarks[454].x - landmarks[234].x, landmarks[454].y - landmarks[234].y);
+    const faceHeight = Math.hypot(landmarks[168].x - landmarks[164].x, landmarks[168].y - landmarks[164].y);
     const fWHR = faceWidth / faceHeight;
 
     // Eye Aspect Ratio (EAR)
-    const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    const dist = (p1: any, p2: any) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
     const leftEAR = (dist(landmarks[160], landmarks[144]) + dist(landmarks[158], landmarks[153])) / (2 * dist(landmarks[33], landmarks[133]));
     const rightEAR = (dist(landmarks[385], landmarks[380]) + dist(landmarks[387], landmarks[373])) / (2 * dist(landmarks[362], landmarks[263]));
     const ear = (leftEAR + rightEAR) / 2;

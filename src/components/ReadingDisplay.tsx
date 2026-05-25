@@ -518,10 +518,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-resonance"
+            id="tabpanel-resonance"
+            role="tabpanel"
+            aria-labelledby="tab-resonance"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
+            className="space-y-8 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose relative">
               <div className="text-center mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#1a1a1a]/10">
@@ -581,10 +585,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-oracle"
+            id="tabpanel-oracle"
+            role="tabpanel"
+            aria-labelledby="tab-oracle"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
+            className="space-y-8 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="text-center">
               <h3 className="text-2xl font-serif italic text-gold mb-4">Question the Oracle</h3>
@@ -599,13 +607,15 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="What do you wish to know?"
-                className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:border-gold transition-all pr-16 font-serif italic"
+                aria-label="Ask the Oracle a question"
+                className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all pr-16 font-serif italic"
                 disabled={isAskingQuestion}
               />
               <button
                 type="submit"
                 disabled={!question.trim() || isAskingQuestion}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50"
+                aria-label="Submit question to the Oracle"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
               >
                 {isAskingQuestion ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               </button>
@@ -651,10 +661,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-breakdown"
+            id="tabpanel-breakdown"
+            role="tabpanel"
+            aria-labelledby="tab-breakdown"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-12 relative"
+            className="space-y-12 relative focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="text-center">
               <h3 className="text-xl md:text-2xl font-serif italic text-gold mb-3 md:mb-4">Features & Traditions</h3>
@@ -686,10 +700,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-omens"
+            id="tabpanel-omens"
+            role="tabpanel"
+            aria-labelledby="tab-omens"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
+            className="space-y-8 relative focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="absolute top-0 right-0 z-20">
             </div>
@@ -738,10 +756,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-cosmic"
+            id="tabpanel-cosmic"
+            role="tabpanel"
+            aria-labelledby="tab-cosmic"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-6 relative"
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 relative focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="absolute -top-12 right-0 z-20">
             </div>
@@ -795,10 +817,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-deep-dives"
+            id="tabpanel-deep-dives"
+            role="tabpanel"
+            aria-labelledby="tab-deep-dives"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
+            className="space-y-8 relative focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="absolute top-0 right-0 z-20">
             </div>
@@ -909,10 +935,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
         return (
           <motion.div
             key="page-celestial-pdf"
+            id="tabpanel-celestial-pdf"
+            role="tabpanel"
+            aria-labelledby="tab-celestial-pdf"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-8 relative"
+            className="space-y-8 relative focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            tabIndex={0}
           >
             <div className="absolute top-0 right-0 z-20">
             </div>
@@ -955,12 +985,19 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
       {/* Page Navigation Tabs */}
       <div className="flex justify-start sm:justify-center mb-8 overflow-x-auto px-4 pb-4 no-scrollbar">
-        <div className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap">
+        <div
+          role="tablist"
+          className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap"
+        >
           {pages.map((page, index) => (
             <button
               key={page.id}
+              id={`tab-${page.id}`}
+              role="tab"
+              aria-selected={currentPage === index}
+              aria-controls={`tabpanel-${page.id}`}
               onClick={() => setCurrentPage(index)}
-              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-gold/50 outline-none ${
                 currentPage === index 
                   ? 'bg-[#1a1a1a] text-gold shadow-md' 
                   : 'text-[#1a1a1a]/50 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5'
@@ -1050,7 +1087,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1110,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>
@@ -1118,7 +1157,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       <div className="flex justify-center pb-24">
         <button
           onClick={onReset}
-          className="px-12 py-4 border border-gold/30 rounded-full text-gold/60 hover:text-gold hover:border-gold transition-all uppercase tracking-widest text-xs font-bold"
+          className="px-12 py-4 border border-gold/30 rounded-full text-gold/60 hover:text-gold hover:border-gold transition-all uppercase tracking-widest text-xs font-bold focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
         >
           Begin Another Reading
         </button>

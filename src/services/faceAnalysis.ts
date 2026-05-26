@@ -64,7 +64,23 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Caching for expensive neural network calls during background observation
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: faceapi.FaceExpressions | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
+/**
+ * Analyzes a face from video or image media.
+ * @param media The media element to analyze
+ * @param options Optimization options
+ * @param options.fast If true, skips expensive face-api.js inferences every few frames to save CPU
+ */
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +100,28 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult;
+    // Optimization: Skip expensive face-api.js calls in background loops (fast mode)
+    // but refresh occasionally to keep data fresh.
+    if (options.fast && lastExpressions && lastAge !== undefined && refreshCounter % CACHE_REFRESH_RATE !== 0) {
+      faResult = {
+        expressions: lastExpressions,
+        age: lastAge,
+        gender: lastGender
+      };
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastExpressions = faResult.expressions;
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    }
+
+    refreshCounter++;
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -122,12 +157,12 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     // fWHR: Face Width to Height Ratio
     // Width: distance between zygomatic arches (approx indices 454 and 234)
     // Height: distance between brow and upper lip (approx indices 168 and 164)
-    const faceWidth = Math.sqrt(Math.pow(landmarks[454].x - landmarks[234].x, 2) + Math.pow(landmarks[454].y - landmarks[234].y, 2));
-    const faceHeight = Math.sqrt(Math.pow(landmarks[168].x - landmarks[164].x, 2) + Math.pow(landmarks[168].y - landmarks[164].y, 2));
+    const faceWidth = Math.hypot(landmarks[454].x - landmarks[234].x, landmarks[454].y - landmarks[234].y);
+    const faceHeight = Math.hypot(landmarks[168].x - landmarks[164].x, landmarks[168].y - landmarks[164].y);
     const fWHR = faceWidth / faceHeight;
 
     // Eye Aspect Ratio (EAR)
-    const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    const dist = (p1: any, p2: any) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
     const leftEAR = (dist(landmarks[160], landmarks[144]) + dist(landmarks[158], landmarks[153])) / (2 * dist(landmarks[33], landmarks[133]));
     const rightEAR = (dist(landmarks[385], landmarks[380]) + dist(landmarks[387], landmarks[373])) / (2 * dist(landmarks[362], landmarks[263]));
     const ear = (leftEAR + rightEAR) / 2;
@@ -187,7 +222,10 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const fear = (getShape('eyeWideLeft') + getShape('eyeWideRight') + getShape('browInnerUp')) / 3;
 
     // Micro-expression Intensity: Sum of all small facial movements
-    const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
+    // Added safety check for empty blendshapes
+    const microExpressionIntensity = blendshapes.length > 0
+      ? blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length
+      : 0;
 
     // Emotions
     const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];

@@ -64,7 +64,14 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Optimization: Cache expensive face-api.js results for background observation
+let lastAge = 25;
+let lastGender = "unknown";
+let lastExpressions: Record<string, number> = { neutral: 1 };
+let cacheCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +91,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: Skip expensive neural network inferences if 'fast' is requested
+    // and we have relatively fresh data. This is ideal for background observation loops.
+    const shouldSkipFA = options.fast && cacheCounter % CACHE_REFRESH_RATE !== 0;
+
+    let faResult: any = null;
+    if (!shouldSkipFA) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    } else {
+      // Reuse cached results to save ~50-100ms per frame
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions
+      };
+    }
+
+    cacheCounter++;
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

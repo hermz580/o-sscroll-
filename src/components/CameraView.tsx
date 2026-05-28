@@ -61,6 +61,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
+  const isProcessingRef = useRef(false);
   const [candidFrame, setCandidFrame] = useState<string | null>(null);
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -213,9 +214,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isProcessingRef.current) {
+          isProcessingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Optimization: Use fast-path for background observation
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +231,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingRef.current = false;
           }
         }
       }, 250);

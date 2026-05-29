@@ -64,7 +64,13 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+let lastAge: any;
+let lastGender: any;
+let lastExpressions: any;
+let cacheCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +90,30 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult: any;
+    const shouldRefreshCache = cacheCounter % CACHE_REFRESH_RATE === 0;
+
+    if (options.fast && !shouldRefreshCache && lastAge !== undefined) {
+      // Use cached values for fast mode
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions
+      };
+    } else {
+      // Perform full inference
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    }
+
+    cacheCounter++;
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -187,7 +214,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const fear = (getShape('eyeWideLeft') + getShape('eyeWideRight') + getShape('browInnerUp')) / 3;
 
     // Micro-expression Intensity: Sum of all small facial movements
-    const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
+    const microExpressionIntensity = blendshapes.length > 0 ? blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length : 0;
 
     // Emotions
     const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];

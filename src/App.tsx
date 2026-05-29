@@ -186,10 +186,20 @@ export default function App() {
       <nav className="relative z-20 flex justify-end p-6">
         <button 
           onClick={() => setIsHistoryOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-full glass-morphism border border-gold/20 text-gold text-[10px] font-label uppercase tracking-widest font-bold hover:bg-gold/10 transition-all"
+          className="relative flex items-center gap-2 px-4 py-2 rounded-full glass-morphism border border-gold/20 text-gold text-[10px] font-label uppercase tracking-widest font-bold hover:bg-gold/10 transition-all focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+          aria-label="Open past visions"
         >
           <HistoryIcon className="w-3 h-3" />
           Visions
+          {history.length > 0 && (
+            <span className="relative flex h-2 w-2 -mr-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-gold"></span>
+            </span>
+          )}
+          {history.length > 0 && (
+            <span className="ml-1 opacity-60">({history.length})</span>
+          )}
         </button>
       </nav>
 

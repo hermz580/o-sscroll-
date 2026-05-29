@@ -1,0 +1,3 @@
+## 2025-05-29 - [Keyboard Accessibility and Focus Management in Overlays]
+**Learning:** In interactive sidebars or overlays, ensuring that cards (or items) are not only visually clickable but also keyboard-accessible is crucial. Using `role="button"` and `tabIndex={0}` on a container requires explicit `onKeyDown` handling for 'Enter' and 'Space' to meet user expectations. Additionally, when items have secondary actions (like 'Delete') that only appear on hover, `group-focus-within` is essential to ensure these actions remain discoverable for keyboard users.
+**Action:** Always pair `onClick` with `onKeyDown` and appropriate ARIA roles for container-based buttons. Ensure secondary "hover-only" actions use focus-based visibility triggers.

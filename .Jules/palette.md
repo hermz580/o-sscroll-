@@ -1,0 +1,3 @@
+## 2026-05-31 - Interaction Polish for History and Navigation
+**Learning:** In glass-morphic interfaces where secondary actions (like 'Delete') are often hidden until hover for visual minimalism, using `group-focus-within:opacity-100` is essential for keyboard accessibility and discoverability. Additionally, nesting interactive elements (like a delete button inside a clickable card) requires careful event propagation management (`e.stopPropagation()`) for both 'click' and 'keydown' events to prevent accidental triggers.
+**Action:** Always ensure secondary actions hidden by hover are also mapped to focus states, and implement strict event isolation when nesting interactive components.

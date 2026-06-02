@@ -5,6 +5,11 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Cache for face-api.js results to enable "fast" mode
+let lastAge: number = 0;
+let lastGender: string = "unknown";
+let lastExpressions: any = { neutral: 1 };
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +69,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +92,32 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    let faResult;
+    if (options.fast) {
+      // In fast mode, we use cached face-api results to save CPU/GPU
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions
+      };
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        // Update cache with fresh results
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    }
+
+    if (!faResult) {
       return null;
     }
 

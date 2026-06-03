@@ -1,0 +1,3 @@
+## 2025-05-15 - Optimizing Background ML Observation Loops
+**Learning:** In React applications running high-frequency asynchronous ML observation loops (e.g., face analysis via `setInterval`), there is a high risk of "execution stacking" if the inference time exceeds the interval. Additionally, not all ML-derived metadata (like age or gender) needs to be computed at the same frequency as spatial landmarks.
+**Action:** Use `useRef`-based concurrency guards (boolean flags in `try...finally` blocks) to prevent overlapping async calls. Implement a "fast" mode for inference that caches stable traits and only refreshes them every N frames (e.g., 1/15th of the frequency) to drastically reduce CPU/GPU overhead.

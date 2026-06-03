@@ -26,6 +26,12 @@ console.warn = (...args) => { if (!filter(...args)) originalWarn.apply(console, 
 console.error = (...args) => { if (!filter(...args)) originalError.apply(console, args); };
 console.debug = (...args) => { if (!filter(...args)) originalDebug.apply(console, args); };
 
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: Record<string, number> | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
 export async function initModels() {
   if (modelsLoaded) return;
 
@@ -64,7 +70,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +93,33 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    let faResult;
+    // Throttled face-api.js analysis for background observation
+    if (options.fast && lastAge !== undefined && refreshCounter % CACHE_REFRESH_RATE !== 0) {
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions
+      };
+      refreshCounter++;
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 1; // Reset counter after refresh
+      }
+    }
+
+    if (!faResult) {
       return null;
     }
 

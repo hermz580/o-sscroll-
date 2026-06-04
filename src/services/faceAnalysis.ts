@@ -5,6 +5,13 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Performance Cache for face-api.js (which is much slower than MediaPipe)
+let lastAge: number | null = null;
+let lastGender: string | null = null;
+let lastExpressions: faceapi.FaceExpressions | null = null;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Full refresh every 15 calls during fast mode
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +71,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +94,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: face-api.js is heavy. In fast mode, we use cached results
+    // for age, gender, and expressions unless we haven't run it yet or
+    // it's time for a periodic refresh.
+    let faResult;
+    const shouldRefresh = !options.fast || refreshCounter >= CACHE_REFRESH_RATE || !lastExpressions;
+
+    if (shouldRefresh) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    } else {
+      refreshCounter++;
+      faResult = {
+        age: lastAge!,
+        gender: lastGender!,
+        expressions: lastExpressions!
+      };
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

@@ -64,7 +64,17 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Throttling and Caching for heavy face-api operations
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: faceapi.FaceExpressions | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Refresh every 15 calls (~4 seconds at 250ms interval)
+
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +94,36 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    // Heavy face-api.js operations (expressions, age, gender)
+    // In fast mode, we use cached results to save CPU unless it's time for a refresh
+    let faResult;
+    const shouldRefresh = refreshCounter % CACHE_REFRESH_RATE === 0;
+
+    if (!options.fast || shouldRefresh || !lastExpressions) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    } else {
+      faResult = {
+        age: lastAge!,
+        gender: lastGender!,
+        expressions: lastExpressions!
+      };
+    }
+
+    refreshCounter++;
+
+    if (!faResult) {
       return null;
     }
 

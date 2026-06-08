@@ -5,6 +5,13 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Caching for fast mode
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: any | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +71,7 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +91,34 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult;
+    const shouldRefresh = refreshCounter % CACHE_REFRESH_RATE === 0;
+
+    if (!options.fast || shouldRefresh || !lastExpressions) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    } else {
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions,
+        // Mocking detection as we don't use it in return metrics but faResult might be checked for existence
+        detection: {}
+      };
+    }
+
+    if (options.fast) {
+      refreshCounter++;
+    } else {
+      refreshCounter = 0; // Reset on full scan
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

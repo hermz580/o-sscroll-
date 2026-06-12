@@ -224,7 +224,7 @@ export const PermissionsCheck: React.FC<PermissionsCheckProps> = ({ onComplete }
         {!allGranted && (
           <button 
             onClick={onComplete}
-            className="w-full text-center font-label text-[10px] text-primary/40 mt-4 uppercase tracking-widest hover:text-primary transition-colors"
+            className="w-full text-center font-label text-[10px] text-primary/40 mt-4 uppercase tracking-widest hover:text-primary hover:underline transition-all focus-visible:ring-2 focus-visible:ring-primary/50 outline-none rounded-sm"
           >
             Or proceed with limited features
           </button>

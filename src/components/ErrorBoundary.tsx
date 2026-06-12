@@ -10,8 +10,16 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  // Manual property declarations to resolve linting errors in the current environment
+  props: Props;
+  state: State;
+  context: any;
+  setState: any;
+  forceUpdate: any;
+
   constructor(props: Props) {
     super(props);
+    this.props = props;
     this.state = { hasError: false };
   }
 
@@ -24,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.hasError) {
+    if ((this as any).state.hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#0a0a0a] text-[#f5f2ed]">
           <AlertTriangle className="w-12 h-12 text-[#c5a059] mb-4" />
@@ -40,6 +48,6 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }

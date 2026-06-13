@@ -64,7 +64,23 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: faceapi.FaceExpressions | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15;
+
+/**
+ * Analyzes a face from a video or image source.
+ * @param media The source media (video or image)
+ * @param options Optimization options
+ * @param options.fast If true, skips expensive neural net inferences by using cached results
+ *                     when available. A refresh is still performed every CACHE_REFRESH_RATE calls.
+ */
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +100,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult: any;
+
+    // Optimization: Skip expensive face-api.js inferences if in fast mode and cache is warm
+    const shouldRefresh = refreshCounter >= CACHE_REFRESH_RATE || !lastExpressions;
+
+    if (options.fast && !shouldRefresh) {
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions,
+        detection: {} // Mock detection for compatibility
+      };
+      refreshCounter++;
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

@@ -1,0 +1,3 @@
+## 2025-05-14 - Accessible Nested Interactivity
+**Learning:** Nesting a functional button (Delete) inside a keyboard-interactive container (History Card) requires explicit event propagation control and visibility management. Using `e.stopPropagation()` in both `onClick` and `onKeyDown` handlers is crucial to prevent the parent's action from triggering. Furthermore, using `group-focus-within:opacity-100` ensures that secondary actions hidden on hover are discoverable and usable for keyboard users.
+**Action:** Always ensure nested interactive elements suppress event bubbling and utilize focus-within states to maintain accessibility parity with hover states.

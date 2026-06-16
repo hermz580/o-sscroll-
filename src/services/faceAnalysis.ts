@@ -64,8 +64,20 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Cache for face-api.js results to reduce CPU usage during background observation
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: faceapi.FaceExpressions | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Only refresh expensive face-api.js models every 15 frames in fast mode
+
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options?: { fast?: boolean }
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
+
+  const isFastMode = options?.fast === true;
 
   try {
     let mpResult;
@@ -84,9 +96,29 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult: any;
+
+    // Optimization: Skip expensive face-api.js detection in fast mode unless cache is stale
+    if (isFastMode && lastAge !== undefined && refreshCounter < CACHE_REFRESH_RATE) {
+      refreshCounter++;
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions,
+        detection: {} // Mock for compatibility
+      };
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

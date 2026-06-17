@@ -599,13 +599,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="What do you wish to know?"
-                className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:border-gold transition-all pr-16 font-serif italic"
+                className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:border-gold focus-visible:ring-2 focus-visible:ring-gold/50 transition-all pr-16 font-serif italic"
                 disabled={isAskingQuestion}
               />
               <button
                 type="submit"
                 disabled={!question.trim() || isAskingQuestion}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50"
+                aria-label="Submit question"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
               >
                 {isAskingQuestion ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               </button>
@@ -960,7 +961,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             <button
               key={page.id}
               onClick={() => setCurrentPage(index)}
-              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-gold/50 outline-none ${
                 currentPage === index 
                   ? 'bg-[#1a1a1a] text-gold shadow-md' 
                   : 'text-[#1a1a1a]/50 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5'
@@ -1008,14 +1009,14 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                       <button 
                           onClick={handleDownload}
                           disabled={isDownloading}
-                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all disabled:opacity-50"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
                       >
                           <Download className="w-3 h-3" />
                           {isDownloading ? 'Saving...' : 'Save PDF'}
                       </button>
                       <button 
                           onClick={handleShare}
-                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-[#1a1a1a]/20 text-[#1a1a1a] text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-[#1a1a1a]/5 transition-all focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
                       >
                           <Share2 className="w-3 h-3" />
                           {copied ? 'Copied' : 'Share'}
@@ -1050,7 +1051,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1074,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>

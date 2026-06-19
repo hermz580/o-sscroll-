@@ -1,0 +1,3 @@
+## 2026-06-19 - ML Inference Concurrency and DOM Footprint
+**Learning:** High-frequency intervals (100-250ms) involving asynchronous ML inference (FaceAPI, MediaPipe) can cause severe main-thread congestion and UI 'stutter' if calls overlap. Implementing 'concurrency guards' using React Refs and 'try...finally' blocks is essential to ensure only one inference task runs at a time. Additionally, background 'observation' loops often don't need full feature detection (age, gender, expressions), and can be optimized with a 'fast' mode that only extracts basic metrics.
+**Action:** Always wrap async interval callbacks in Ref-based guards and prioritize lightweight inference for background tasks.

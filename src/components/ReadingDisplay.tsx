@@ -97,11 +97,14 @@ const colorizeText = (text: string) => {
     const cleanWord = part.toLowerCase().replace(/[^\w]/g, '');
     const color = WORD_COLOR_BANK[cleanWord];
     
+    // Only wrap in span if it has a special color to reduce DOM nodes
+    if (!color) return part;
+
     return (
       <span 
         key={i} 
         className="reading-word transition-colors duration-300" 
-        style={color ? { '--word-color': color } as React.CSSProperties : undefined}
+        style={{ '--word-color': color } as React.CSSProperties}
       >
         {part}
       </span>

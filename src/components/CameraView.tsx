@@ -634,8 +634,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">True Name</label>
+            <label htmlFor="trueName" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">True Name</label>
             <input 
+              id="trueName"
               type="text" 
               placeholder="e.g. Julian Thorne" 
               value={userInfo.name}
@@ -644,8 +645,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Origin Point</label>
+            <label htmlFor="originPoint" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Origin Point</label>
             <input 
+              id="originPoint"
               type="text" 
               placeholder="Birth City, Country" 
               value={userInfo.birthplace}
@@ -654,8 +656,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Date</label>
+            <label htmlFor="arrivalDate" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Date</label>
             <input 
+              id="arrivalDate"
               type="date" 
               value={userInfo.birthDate}
               onChange={(e) => setUserInfo({...userInfo, birthDate: e.target.value})}
@@ -663,8 +666,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Time</label>
+            <label htmlFor="arrivalTime" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Time</label>
             <input 
+              id="arrivalTime"
               type="time" 
               value={userInfo.birthTime}
               onChange={(e) => setUserInfo({...userInfo, birthTime: e.target.value})}
@@ -676,7 +680,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         {/* PDF Upload Dropzone */}
         <div className="mt-4 space-y-1.5">
           <div className="flex items-center justify-between ml-1">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Astrological Chart (PDF)</label>
+            <label htmlFor="pdfChart" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Astrological Chart (PDF)</label>
             <a href="https://www.astro.com/free/free_chart_e.htm" target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1 font-label uppercase tracking-widest">
               Get Chart from Astro.com <ExternalLink className="w-3 h-3" />
             </a>
@@ -690,7 +694,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
              }} 
              onDragOver={(e) => e.preventDefault()}
           >
-             <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
+             <input id="pdfChart" type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => {
                const file = e.target.files?.[0];
                if (file) handlePdfUpload(file);
              }} />
@@ -719,30 +723,30 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       <div className="flex flex-wrap items-center justify-center gap-4">
         
         <div className="flex items-center gap-2">
-          <label className="cursor-pointer group">
+          <label htmlFor="faceUpload" className="cursor-pointer group focus-within:ring-2 focus-within:ring-primary/50 rounded-full outline-none">
             <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-surface-container-low border border-primary/10 text-on-surface-variant hover:border-primary/30 transition-all">
               <Upload className="w-3.5 h-3.5" />
               <span className="font-label text-[10px] uppercase tracking-widest">Upload Face</span>
             </div>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'face')} />
+            <input id="faceUpload" type="file" accept="image/*" className="sr-only" onChange={(e) => handleFileUpload(e, 'face')} />
           </label>
-          <label className="cursor-pointer group">
+          <label htmlFor="palmUpload" className="cursor-pointer group focus-within:ring-2 focus-within:ring-primary/50 rounded-full outline-none">
             <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border transition-all ${
               palmSrc ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-container-low border-primary/10 text-on-surface-variant hover:border-primary/30'
             }`}>
               <Hand className="w-3.5 h-3.5" />
               <span className="font-label text-[10px] uppercase tracking-widest">{palmSrc ? 'Palm Added' : 'Add Palm'}</span>
             </div>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'palm')} />
+            <input id="palmUpload" type="file" accept="image/*" className="sr-only" onChange={(e) => handleFileUpload(e, 'palm')} />
           </label>
-          <label className="cursor-pointer group">
+          <label htmlFor="irisUpload" className="cursor-pointer group focus-within:ring-2 focus-within:ring-primary/50 rounded-full outline-none">
             <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border transition-all ${
               irisSrc ? 'bg-primary/10 border-primary text-primary' : 'bg-surface-container-low border-primary/10 text-on-surface-variant hover:border-primary/30'
             }`}>
               <Eye className="w-3.5 h-3.5" />
               <span className="font-label text-[10px] uppercase tracking-widest">{irisSrc ? 'Iris Added' : 'Add Iris'}</span>
             </div>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'iris')} />
+            <input id="irisUpload" type="file" accept="image/*" className="sr-only" onChange={(e) => handleFileUpload(e, 'iris')} />
           </label>
         </div>
       </div>

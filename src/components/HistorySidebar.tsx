@@ -43,7 +43,12 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none"
+            aria-label="Close past visions"
+            title="Close past visions"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -64,12 +69,21 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
               history.map((reading, index) => (
                 <motion.div 
                   key={reading.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-labelledby={`vision-title-${reading.id} vision-date-${reading.id}`}
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: index * 0.05, duration: 0.3 }}
-                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
+                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20 focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none ring-offset-2 ring-offset-bg"
                   onClick={() => onSelect(reading)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(reading);
+                    }
+                  }}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -77,7 +91,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" 
                         style={{ color: reading.synthesis?.auraColor || 'var(--color-gold)', backgroundColor: reading.synthesis?.auraColor || 'var(--color-gold)' }} 
                       />
-                      <span className="text-[10px] font-label uppercase tracking-widest text-gold/60 font-bold">
+                      <span id={`vision-date-${reading.id}`} className="text-[10px] font-label uppercase tracking-widest text-gold/60 font-bold">
                         {new Date(reading.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
                     </div>
@@ -86,12 +100,19 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         e.stopPropagation();
                         onDelete(reading.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none rounded-md transition-all text-on-surface/20"
+                      aria-label="Delete vision"
+                      title="Delete vision"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>
+                  <h3 id={`vision-title-${reading.id}`} className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>
                   <p className="text-xs font-headline italic text-on-surface/40 line-clamp-2 leading-relaxed">
                     {reading.synthesis?.soulSignature || 'No signature available.'}
                   </p>

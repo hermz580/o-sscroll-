@@ -5,6 +5,8 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+const TINY_FACE_DETECTOR_OPTIONS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -84,11 +86,15 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
+
+    const faResult = await faceapi.detectSingleFace(media, TINY_FACE_DETECTOR_OPTIONS)
       .withFaceExpressions()
       .withAgeAndGender();
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    if (!faResult) {
       return null;
     }
 

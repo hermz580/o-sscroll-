@@ -235,11 +235,13 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
         <div key={tradition.id} className="rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 overflow-hidden transition-all duration-300">
           <button
             onClick={() => setOpenId(openId === tradition.id ? null : tradition.id)}
-            className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors"
+            aria-expanded={openId === tradition.id}
+            aria-controls={`tradition-content-${tradition.id}`}
+            className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
           >
             <div className="flex items-center gap-3">
               <div className="text-gold">{tradition.icon}</div>
-              <h3 className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
+              <h3 id={`tradition-header-${tradition.id}`} className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
             </div>
             <div className="flex items-center gap-4">
               {openId === tradition.id ? (
@@ -252,6 +254,9 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
           <AnimatePresence>
             {openId === tradition.id && (
               <motion.div
+                id={`tradition-content-${tradition.id}`}
+                role="region"
+                aria-labelledby={`tradition-header-${tradition.id}`}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -605,7 +610,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
               <button
                 type="submit"
                 disabled={!question.trim() || isAskingQuestion}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50"
+                aria-label="Ask the oracle"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
               >
                 {isAskingQuestion ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               </button>
@@ -1050,7 +1056,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1079,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>

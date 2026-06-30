@@ -605,7 +605,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
               <button
                 type="submit"
                 disabled={!question.trim() || isAskingQuestion}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50"
+                aria-label="Ask the Oracle"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-[#1a1a1a] text-gold rounded-full hover:bg-[#2a2a2a] transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
               >
                 {isAskingQuestion ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               </button>
@@ -1050,7 +1051,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Previous page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors rounded-full focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1074,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                aria-label="Next page"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors rounded-full focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>
@@ -1118,7 +1121,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       <div className="flex justify-center pb-24">
         <button
           onClick={onReset}
-          className="px-12 py-4 border border-gold/30 rounded-full text-gold/60 hover:text-gold hover:border-gold transition-all uppercase tracking-widest text-xs font-bold"
+          className="px-12 py-4 border border-gold/30 rounded-full text-gold/60 hover:text-gold hover:border-gold transition-all uppercase tracking-widest text-xs font-bold focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
         >
           Begin Another Reading
         </button>

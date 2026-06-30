@@ -126,7 +126,7 @@ export const PermissionsCheck: React.FC<PermissionsCheckProps> = ({ onComplete }
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={requestCamera}
-          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left ${
+          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left focus-visible:ring-2 focus-visible:ring-primary/50 outline-none ${
             status.camera === 'granted' ? 'bg-primary/10 border border-primary/20' : 'bg-surface-container-low hover:bg-surface-container'
           }`}
         >
@@ -148,7 +148,7 @@ export const PermissionsCheck: React.FC<PermissionsCheckProps> = ({ onComplete }
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={requestMic}
-          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left ${
+          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left focus-visible:ring-2 focus-visible:ring-primary/50 outline-none ${
             status.microphone === 'granted' ? 'bg-primary/10 border border-primary/20' : 'bg-surface-container-low hover:bg-surface-container'
           }`}
         >
@@ -170,7 +170,7 @@ export const PermissionsCheck: React.FC<PermissionsCheckProps> = ({ onComplete }
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={requestGeo}
-          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left ${
+          className={`p-8 rounded-xl flex flex-col items-start space-y-4 transition-all duration-300 group text-left focus-visible:ring-2 focus-visible:ring-primary/50 outline-none ${
             status.geolocation === 'granted' ? 'bg-primary/10 border border-primary/20' : 'bg-surface-container-low hover:bg-surface-container'
           }`}
         >
@@ -195,7 +195,7 @@ export const PermissionsCheck: React.FC<PermissionsCheckProps> = ({ onComplete }
           whileTap={allGranted ? { scale: 0.95 } : {}}
           onClick={onComplete}
           disabled={!allGranted}
-          className={`w-full font-label text-sm uppercase tracking-[0.2em] py-5 rounded-full transition-all duration-300 flex items-center justify-center space-x-3 ${
+          className={`w-full font-label text-sm uppercase tracking-[0.2em] py-5 rounded-full transition-all duration-300 flex items-center justify-center space-x-3 focus-visible:ring-2 focus-visible:ring-primary/50 outline-none ${
             allGranted 
               ? 'bg-primary-container text-on-primary-container shadow-[0_0_30px_rgba(197,160,89,0.3)]' 
               : 'bg-surface-container-high text-on-surface/20 cursor-not-allowed'

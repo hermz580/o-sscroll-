@@ -1,0 +1,3 @@
+## 2025-05-14 - Async ML Task Locking & Canvas Batching
+**Learning:** High-frequency intervals (100ms-250ms) invoking heavy asynchronous ML tasks (like face landmark detection) can cause "task piling" and CPU/GPU congestion if processing time exceeds the interval. Additionally, frequent Canvas API calls like `beginPath()` and `fill()` inside loops significantly degrade rendering performance.
+**Action:** Always implement `useRef` locks with `try...finally` blocks for async intervals to prevent overlapping execution. Batch Canvas operations by grouping multiple `arc()` or `lineTo()` calls within a single `beginPath()`/`fill()` or `stroke()` call to reduce draw call overhead.

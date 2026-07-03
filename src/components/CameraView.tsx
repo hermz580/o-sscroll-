@@ -69,6 +69,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Performance locks to prevent overlapping ML processing calls
+  const isProcessingLandmarksRef = useRef(false);
+  const isProcessingObservationRef = useRef(false);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
 
   const startCamera = async () => {
@@ -155,25 +158,30 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const ctx = canvas.getContext('2d');
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        // Optimization: Skip frame if previous processing is still active
+        if (!ctx || video.paused || video.ended || isProcessingLandmarksRef.current) return;
         
-        const landmarks = await getLandmarks(video);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (landmarks) {
+        isProcessingLandmarksRef.current = true;
+        try {
+          const landmarks = await getLandmarks(video);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (landmarks) {
           ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
           ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
           ctx.lineWidth = 0.5;
 
           landmarks.forEach(faceLandmarks => {
-            // Draw points
+            // Optimization: Batch all landmark points into a single path to reduce draw calls
+            // This reduces the number of ctx operations from O(N) to O(1) per face
+            ctx.beginPath();
             faceLandmarks.forEach((pt: any) => {
               const x = pt.x * canvas.width;
               const y = pt.y * canvas.height;
-              ctx.beginPath();
+              ctx.moveTo(x + 1, y);
               ctx.arc(x, y, 1, 0, Math.PI * 2);
-              ctx.fill();
             });
+            ctx.fill();
 
             // Draw some connecting lines for "Sacred Geometry" feel
             ctx.beginPath();
@@ -189,11 +197,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             ctx.stroke();
           });
           
-          if (landmarks.length > 1) {
-              setMultiFaceDetected(true);
-          } else {
-              setMultiFaceDetected(false);
+            const isMulti = landmarks.length > 1;
+            // Optimization: Prevent redundant re-renders by checking for state equality
+            setMultiFaceDetected(prev => prev !== isMulti ? isMulti : prev);
           }
+        } finally {
+          isProcessingLandmarksRef.current = false;
         }
       }, 100);
     } else {
@@ -213,7 +222,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        // Optimization: Skip tick if previous analysis is still active to save CPU/GPU cycles
+        if (videoRef.current && !isProcessingObservationRef.current) {
+          isProcessingObservationRef.current = true;
           try {
             const metrics = await analyzeFace(videoRef.current);
             if (metrics) {
@@ -228,6 +239,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingObservationRef.current = false;
           }
         }
       }, 250);
@@ -435,7 +448,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
           
           const detected = selectedWords.filter(word => transcript.includes(word.toLowerCase()));
           detectedWords = Array.from(new Set([...detectedWords, ...detected]));
-          setSpokenWords(detectedWords);
+          setSpokenWords(prev => prev.length !== detectedWords.length ? detectedWords : prev);
         };
 
         recognition.onerror = (event: any) => {
@@ -456,10 +469,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       if (captureStep.startsWith('face')) {
         const currentInstruction = instructions.find(i => progress >= i.start && progress < i.end);
         if (currentInstruction) {
-          setScanInstruction(currentInstruction.text);
+          setScanInstruction(prev => prev !== currentInstruction.text ? currentInstruction.text : prev);
         }
       } else if (captureStep === 'voice') {
-        setScanInstruction("The Ancestors listen...");
+        setScanInstruction(prev => prev !== "The Ancestors listen..." ? "The Ancestors listen..." : prev);
       }
 
       // Always process audio frequencies in background

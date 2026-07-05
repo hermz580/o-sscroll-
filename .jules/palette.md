@@ -1,0 +1,3 @@
+## 2025-05-14 - Accessible interactive cards with nested actions
+**Learning:** For interactive list items (cards) that are keyboard-navigable via `tabIndex={0}`, using `group-focus-within` allows hidden or hover-only actions (like a delete button) to become visible when the card or any of its children receive focus. This is critical for keyboard users who otherwise wouldn't see the available actions.
+**Action:** Always complement `group-hover` with `group-focus-within` for contextual actions. Ensure nested buttons call `e.stopPropagation()` in their `onKeyDown` handlers to prevent triggering the parent card's primary action when the nested button is activated.

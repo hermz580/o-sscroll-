@@ -70,6 +70,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const landmarkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const candidBufferRef = useRef<{ metrics: FaceMetrics; image: string; timestamp: number }[]>([]);
+  const isProcessingLandmarksRef = useRef(false);
+  const isProcessingObservationRef = useRef(false);
 
   const startCamera = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -155,45 +157,51 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const ctx = canvas.getContext('2d');
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        if (!ctx || video.paused || video.ended || isProcessingLandmarksRef.current) return;
         
-        const landmarks = await getLandmarks(video);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (landmarks) {
-          ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
-          ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
-          ctx.lineWidth = 0.5;
+        isProcessingLandmarksRef.current = true;
+        try {
+          const landmarks = await getLandmarks(video);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          landmarks.forEach(faceLandmarks => {
-            // Draw points
-            faceLandmarks.forEach((pt: any) => {
-              const x = pt.x * canvas.width;
-              const y = pt.y * canvas.height;
+          if (landmarks) {
+            ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
+            ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
+            ctx.lineWidth = 0.5;
+
+            landmarks.forEach(faceLandmarks => {
+              // Draw points - Grouped for performance
               ctx.beginPath();
-              ctx.arc(x, y, 1, 0, Math.PI * 2);
-              ctx.fill();
-            });
-
-            // Draw some connecting lines for "Sacred Geometry" feel
-            ctx.beginPath();
-            faceLandmarks.forEach((pt: any, i: number) => {
-              if (i % 20 === 0) { // Sparse connections for aesthetic
+              faceLandmarks.forEach((pt: any) => {
                 const x = pt.x * canvas.width;
                 const y = pt.y * canvas.height;
-                ctx.moveTo(x, y);
-                const next = faceLandmarks[(i + 20) % faceLandmarks.length];
-                ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
-              }
+                ctx.moveTo(x + 1, y);
+                ctx.arc(x, y, 1, 0, Math.PI * 2);
+              });
+              ctx.fill();
+
+              // Draw some connecting lines for "Sacred Geometry" feel
+              ctx.beginPath();
+              faceLandmarks.forEach((pt: any, i: number) => {
+                if (i % 20 === 0) { // Sparse connections for aesthetic
+                  const x = pt.x * canvas.width;
+                  const y = pt.y * canvas.height;
+                  ctx.moveTo(x, y);
+                  const next = faceLandmarks[(i + 20) % faceLandmarks.length];
+                  ctx.lineTo(next.x * canvas.width, next.y * canvas.height);
+                }
+              });
+              ctx.stroke();
             });
-            ctx.stroke();
-          });
-          
-          if (landmarks.length > 1) {
-              setMultiFaceDetected(true);
-          } else {
-              setMultiFaceDetected(false);
+
+            if (landmarks.length > 1) {
+                setMultiFaceDetected(true);
+            } else {
+                setMultiFaceDetected(false);
+            }
           }
+        } finally {
+          isProcessingLandmarksRef.current = false;
         }
       }, 100);
     } else {
@@ -213,7 +221,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isProcessingObservationRef.current) {
+          isProcessingObservationRef.current = true;
           try {
             const metrics = await analyzeFace(videoRef.current);
             if (metrics) {
@@ -228,6 +237,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingObservationRef.current = false;
           }
         }
       }, 250);

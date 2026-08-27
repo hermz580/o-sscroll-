@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { History, Trash2, X } from 'lucide-react';
+import { History, Trash2, X, AlertCircle } from 'lucide-react';
 import { ReadingResponse } from '../types';
 
 interface HistorySidebarProps {
@@ -18,6 +18,20 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+    e.stopPropagation();
+    if (confirmDeleteId === id) {
+      onDelete(id);
+      setConfirmDeleteId(null);
+    } else {
+      setConfirmDeleteId(id);
+      // Auto-reset confirmation after 3 seconds
+      setTimeout(() => setConfirmDeleteId(prev => prev === id ? null : prev), 3000);
+    }
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -43,7 +57,12 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            aria-label="Close past visions"
+            title="Close past visions"
+            className="p-2 hover:bg-white/5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -68,8 +87,17 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: index * 0.05, duration: 0.3 }}
-                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Vision from ${new Date(reading.timestamp).toLocaleDateString()}: ${reading.synthesis?.coreArchetype || 'Unknown'}`}
+                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                   onClick={() => onSelect(reading)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(reading);
+                    }
+                  }}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -82,13 +110,28 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                       </span>
                     </div>
                     <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(reading.id);
+                      onClick={(e) => handleDeleteClick(e, reading.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          handleDeleteClick(e, reading.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      aria-label={confirmDeleteId === reading.id ? "Confirm dissolution" : "Dissolve this vision"}
+                      title={confirmDeleteId === reading.id ? "Confirm dissolution" : "Dissolve this vision"}
+                      className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                        confirmDeleteId === reading.id
+                          ? 'bg-red-500 text-white opacity-100 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
+                          : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-red-500/10 hover:text-red-400 text-on-surface/20'
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {confirmDeleteId === reading.id ? (
+                        <>
+                          <AlertCircle className="w-3 h-3" />
+                          <span className="text-[8px] font-label uppercase tracking-tighter font-bold">Confirm?</span>
+                        </>
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                   <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>

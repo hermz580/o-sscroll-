@@ -1,0 +1,3 @@
+## 2025-05-15 - Enhancing Keyboard Accessibility for Interactive Cards
+**Learning:** In complex interactive cards (like history items), using `aria-labelledby` pointing to specific child IDs is more robust than a single `aria-label` on the container, as it preserves the structure for screen readers. Additionally, nested interactive elements (like a delete button) must implement `e.stopPropagation()` in both `onClick` and `onKeyDown` handlers to prevent event bubbling from triggering the parent card's action.
+**Action:** Always ensure nested interactive elements stop event propagation to avoid unintended interactions, and use `group-focus-within` to reveal hidden actions to keyboard users.

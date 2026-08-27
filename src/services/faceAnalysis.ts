@@ -64,7 +64,11 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Performance Caching: Maintain continuity during fast-path inferences
+let lastAge = 25;
+let lastGender = 'unknown';
+
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,16 +88,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Performance Optimization: Skip expensive face-api.js inferences in fast mode
+    let faResult = null;
+    if (!options.fast) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    }
+
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || (!options.fast && !faResult)) {
       return null;
     }
 
     const landmarks = mpResult.faceLandmarks[0];
-    const blendshapes = mpResult.faceBlendshapes?.[0]?.categories || [];
+    const blendshapesArray = mpResult.faceBlendshapes?.[0]?.categories || [];
+
+    // Performance Optimization: O(1) blendshape lookup via Record
+    const shapeMap: Record<string, number> = {};
+    for (const c of blendshapesArray) {
+      shapeMap[c.categoryName] = c.score;
+    }
 
     // Mian Xiang: Three Stops
     // Index 10: Forehead center top
@@ -122,12 +141,12 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     // fWHR: Face Width to Height Ratio
     // Width: distance between zygomatic arches (approx indices 454 and 234)
     // Height: distance between brow and upper lip (approx indices 168 and 164)
-    const faceWidth = Math.sqrt(Math.pow(landmarks[454].x - landmarks[234].x, 2) + Math.pow(landmarks[454].y - landmarks[234].y, 2));
-    const faceHeight = Math.sqrt(Math.pow(landmarks[168].x - landmarks[164].x, 2) + Math.pow(landmarks[168].y - landmarks[164].y, 2));
+    const faceWidth = Math.hypot(landmarks[454].x - landmarks[234].x, landmarks[454].y - landmarks[234].y);
+    const faceHeight = Math.hypot(landmarks[168].x - landmarks[164].x, landmarks[168].y - landmarks[164].y);
     const fWHR = faceWidth / faceHeight;
 
     // Eye Aspect Ratio (EAR)
-    const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    const dist = (p1: any, p2: any) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
     const leftEAR = (dist(landmarks[160], landmarks[144]) + dist(landmarks[158], landmarks[153])) / (2 * dist(landmarks[33], landmarks[133]));
     const rightEAR = (dist(landmarks[385], landmarks[380]) + dist(landmarks[387], landmarks[373])) / (2 * dist(landmarks[362], landmarks[263]));
     const ear = (leftEAR + rightEAR) / 2;
@@ -169,7 +188,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const earProminence = Math.abs(landmarks[127].x - landmarks[234].x); // Distance from cheek edge
 
     // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes
-    const getShape = (name: string) => blendshapes.find(c => c.categoryName === name)?.score || 0;
+    const getShape = (name: string) => shapeMap[name] || 0;
     
     // Contempt: Asymmetry in mouth corners (smile/dimple)
     const contempt = Math.abs(getShape('mouthSmileLeft') - getShape('mouthSmileRight')) + 
@@ -187,10 +206,13 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const fear = (getShape('eyeWideLeft') + getShape('eyeWideRight') + getShape('browInnerUp')) / 3;
 
     // Micro-expression Intensity: Sum of all small facial movements
-    const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
+    const microExpressionIntensity = blendshapesArray.length > 0
+      ? blendshapesArray.reduce((sum, c) => sum + c.score, 0) / blendshapesArray.length
+      : 0;
 
     // Emotions
-    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+    const expressions = faResult?.expressions || { neutral: 1 };
+    const dominantEmotion = Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
     // Granular Data
     const granularData = {
@@ -233,7 +255,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       },
       emotions: {
         dominant: dominantEmotion,
-        scores: faResult.expressions as any,
+        scores: expressions as any,
         nuanced: {
           contempt,
           disdain,
@@ -243,8 +265,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: faResult?.age || lastAge,
+      gender: faResult?.gender || lastGender
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

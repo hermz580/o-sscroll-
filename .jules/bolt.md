@@ -1,0 +1,3 @@
+## 2025-05-15 - Background Observation Loop Optimization
+**Learning:** High-frequency background loops (e.g., 250ms) that execute asynchronous ML inferences can lead to significant CPU/GPU overhead and UI stuttering if inferences overlap or if expensive neural network calls (like face-api.js age/gender/expression detection) are executed on every tick.
+**Action:** Implement a concurrency guard (using a Ref) to skip ticks if a previous inference is still in progress, and implement a 'fast' mode that skips expensive, non-volatile inferences (age/gender) while caching and periodically refreshing the data.

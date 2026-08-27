@@ -1,0 +1,3 @@
+## 2025-05-15 - Keyboard Accessibility Pattern for Nested Interactive Elements
+**Learning:** When making container elements (like cards) interactive via keyboard (tabIndex={0}, role="button"), child buttons (like a delete action) must prevent event propagation (e.stopPropagation()) on both 'click' and 'keydown' to avoid triggering the parent container's action. Additionally, using 'group-focus-within' ensures that these hidden-on-hover actions become visible when a keyboard user tabs through the container.
+**Action:** Always implement stopPropagation and group-focus-within visibility for nested actions in keyboard-accessible cards.

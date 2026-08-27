@@ -61,6 +61,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [isScanning, setIsScanning] = useState(false);
   const [scanInstruction, setScanInstruction] = useState<string>("");
   const [isObserving, setIsObserving] = useState(false);
+  const isProcessingRef = useRef(false);
   const [candidFrame, setCandidFrame] = useState<string | null>(null);
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -155,9 +156,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const ctx = canvas.getContext('2d');
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        if (!ctx || video.paused || video.ended || isProcessingRef.current) return;
         
-        const landmarks = await getLandmarks(video);
+        isProcessingRef.current = true;
+        try {
+          const landmarks = await getLandmarks(video);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         if (landmarks) {
@@ -195,6 +198,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
               setMultiFaceDetected(false);
           }
         }
+        } finally {
+          isProcessingRef.current = false;
+        }
       }, 100);
     } else {
       if (landmarkIntervalRef.current) clearInterval(landmarkIntervalRef.current);
@@ -213,9 +219,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isProcessingRef.current) {
+          isProcessingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +235,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isProcessingRef.current = false;
           }
         }
       }, 250);

@@ -1,0 +1,3 @@
+## 2025-05-14 - Real-time ML Optimization with Fast Mode and Concurrency Guards
+**Learning:** High-frequency asynchronous loops (like AI inference in setInterval) without concurrency guards lead to execution pile-up and UI lag, especially on lower-end devices. Throttling expensive secondary inferences (like age/gender in face-api.js) while maintaining high-frequency primary tracking (landmarks) provides a significant performance boost without sacrificing core UX.
+**Action:** Always implement concurrency guards (Ref flags + try/finally) for async loops and use a "last-known-value" caching strategy for secondary metrics in performance-critical paths.

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { History, Trash2, X } from 'lucide-react';
+import { History, Trash2, X, Check } from 'lucide-react';
 import { ReadingResponse } from '../types';
 
 interface HistorySidebarProps {
@@ -18,6 +18,8 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
   return (
     <>
       {/* Overlay */}
@@ -37,13 +39,20 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
         animate={{ x: isOpen ? 0 : '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="fixed top-0 right-0 h-full w-full max-w-sm glass-morphism border-l border-white/10 z-50 flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Past visions history"
       >
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3 text-gold">
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+            aria-label="Close past visions"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -68,8 +77,17 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: index * 0.05, duration: 0.3 }}
-                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
+                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20 focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
                   onClick={() => onSelect(reading)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(reading);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Reading from ${new Date(reading.timestamp).toLocaleDateString()}: ${reading.synthesis?.coreArchetype || 'Unknown'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -84,11 +102,18 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(reading.id);
+                        if (confirmingId === reading.id) {
+                          onDelete(reading.id);
+                          setConfirmingId(null);
+                        } else {
+                          setConfirmingId(reading.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      onMouseLeave={() => setConfirmingId(null)}
+                      className={`${confirmingId === reading.id ? 'opacity-100 text-red-400' : 'opacity-0 group-hover:opacity-100 text-on-surface/20'} p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all focus-visible:ring-2 focus-visible:ring-red-400/50 outline-none`}
+                      aria-label={confirmingId === reading.id ? "Confirm delete reading" : "Delete reading"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {confirmingId === reading.id ? <Check className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                   <h3 className="text-gold font-headline italic text-sm mb-1">{reading.synthesis?.coreArchetype || 'Unknown'}</h3>

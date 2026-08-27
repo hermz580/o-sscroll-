@@ -1,0 +1,3 @@
+## 2025-03-05 - Keyboard Accessibility for Nested Actions
+**Learning:** Nesting interactive elements (like a delete button) inside a `role="button"` container can be tricky for accessibility. While `e.stopPropagation()` handles the functional event bubbling, a flatter DOM with sibling buttons is semantically superior for screen readers. However, enhancing existing containers with `tabIndex={0}`, keyboard handlers, and `group-focus-within` visibility triggers significantly improves usability without a full layout redesign.
+**Action:** When working with card-based lists, prioritize separate primary and secondary buttons within a `role="listitem"` container to avoid nested interactivity warnings.

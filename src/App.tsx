@@ -186,6 +186,7 @@ export default function App() {
       <nav className="relative z-20 flex justify-end p-6">
         <button 
           onClick={() => setIsHistoryOpen(true)}
+          aria-label="Open past visions"
           className="flex items-center gap-2 px-4 py-2 rounded-full glass-morphism border border-gold/20 text-gold text-[10px] font-label uppercase tracking-widest font-bold hover:bg-gold/10 transition-all"
         >
           <HistoryIcon className="w-3 h-3" />

@@ -43,7 +43,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button onClick={onClose} aria-label="Close past visions" className="p-2 hover:bg-white/5 rounded-full transition-colors">
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -86,7 +86,8 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         e.stopPropagation();
                         onDelete(reading.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      aria-label="Delete vision"
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20 focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

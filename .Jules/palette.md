@@ -1,0 +1,3 @@
+## 2025-05-14 - Accessible Hidden Actions & Playwright Verification
+**Learning:** For interactive list items with "hidden" actions (like a delete button only visible on hover), using `group-focus-within:opacity-100` ensures these actions are discoverable and usable for keyboard users. Additionally, when verifying hidden native file inputs in Playwright, use ID-based selection or existence checks rather than `to_be_visible`, as correctly associated labels can trigger hidden inputs even if the inputs themselves are visually hidden.
+**Action:** Always apply `group-focus-within` to hover-only actions and adjust Playwright verification strategies for hidden form controls.

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { History, Trash2, X } from 'lucide-react';
 import { ReadingResponse } from '../types';
@@ -18,6 +18,16 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onSelect, 
   onDelete 
 }) => {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   return (
     <>
       {/* Overlay */}
@@ -43,7 +53,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <History className="w-5 h-5" />
             <h2 className="font-headline italic text-xl">Past Visions</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:outline-none"
+            aria-label="Close sidebar"
+          >
             <X className="w-5 h-5 text-on-surface/40" />
           </button>
         </div>
@@ -68,8 +82,17 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: index * 0.05, duration: 0.3 }}
-                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20"
+                  className="group relative glass-morphism rounded-2xl p-4 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-gold/20 focus-within:ring-2 focus-within:ring-gold/30"
                   onClick={() => onSelect(reading)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Select vision from ${new Date(reading.timestamp).toLocaleDateString()}: ${reading.synthesis?.coreArchetype || 'Unknown'}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(reading);
+                    }
+                  }}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
@@ -86,7 +109,13 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         e.stopPropagation();
                         onDelete(reading.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md transition-all text-on-surface/20 focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:outline-none"
+                      aria-label="Delete vision"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

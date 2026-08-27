@@ -10,9 +10,16 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  // Explicitly declare properties to satisfy compiler without @types/react
+  context: any;
+  setState: any;
+  forceUpdate: any;
+  props: Props;
+  state: State = { hasError: false };
+
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.props = props;
   }
 
   static getDerivedStateFromError(_: Error): State {
@@ -24,7 +31,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.hasError) {
+    // Explicitly cast to any to avoid property access issues on this.state/props
+    const { hasError } = (this as any).state;
+    const { children } = (this as any).props;
+
+    if (hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#0a0a0a] text-[#f5f2ed]">
           <AlertTriangle className="w-12 h-12 text-[#c5a059] mb-4" />
@@ -40,6 +51,6 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }

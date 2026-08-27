@@ -1,0 +1,3 @@
+## 2025-05-15 - Optimizing background ML observation loops
+**Learning:** Background observation loops (setInterval) that perform asynchronous ML inferences (like face-api.js) can lead to significant resource contention and UI lag if they overlap or run too frequently.
+**Action:** Always implement concurrency guards (using refs) for async interval callbacks. Throttle expensive but slow-changing metrics (like age/gender) by caching and skipping inferences, while maintaining high frequency for lightweight metrics (like landmarks). Ensure the cache is "warmed" with at least one real detection before returning placeholder data.

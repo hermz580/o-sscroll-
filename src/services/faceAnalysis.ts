@@ -64,7 +64,17 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Caching for expensive face-api.js inferences
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: any | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Only refresh every 15 calls in fast mode (~4s at 250ms interval)
+
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +94,33 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Performance optimization: skip expensive face-api.js inferences if in fast mode
+    // but ensure we have at least one valid detection before relying on cache.
+    let faResult: any;
+    const shouldSkipInference = options.fast &&
+                               lastAge !== undefined &&
+                               refreshCounter < CACHE_REFRESH_RATE;
+
+    if (shouldSkipInference) {
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions,
+        detection: {} // Mock for structural compatibility
+      };
+      refreshCounter++;
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

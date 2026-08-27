@@ -65,6 +65,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
   const [candidMetrics, setCandidMetrics] = useState<FaceMetrics | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Concurrency guards for async ML loops
+  const isLandmarkProcessingRef = useRef(false);
+  const isObservationProcessingRef = useRef(false);
+
   const countIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const observationIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -155,12 +160,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
       const ctx = canvas.getContext('2d');
 
       landmarkIntervalRef.current = setInterval(async () => {
-        if (!ctx || video.paused || video.ended) return;
+        if (!ctx || video.paused || video.ended || isLandmarkProcessingRef.current) return;
         
-        const landmarks = await getLandmarks(video);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (landmarks) {
+        isLandmarkProcessingRef.current = true;
+        try {
+          const landmarks = await getLandmarks(video);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (landmarks) {
           ctx.fillStyle = 'rgba(197, 160, 89, 0.5)'; // Gold (using theme-like color)
           ctx.strokeStyle = 'rgba(197, 160, 89, 0.2)';
           ctx.lineWidth = 0.5;
@@ -195,6 +202,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
               setMultiFaceDetected(false);
           }
         }
+        } finally {
+          isLandmarkProcessingRef.current = false;
+        }
       }, 100);
     } else {
       if (landmarkIntervalRef.current) clearInterval(landmarkIntervalRef.current);
@@ -213,9 +223,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
     if (isLoaded && videoRef.current && !isScanning && !isAnalyzing && captureStep.startsWith('face')) {
       setIsObserving(true);
       observationIntervalRef.current = setInterval(async () => {
-        if (videoRef.current) {
+        if (videoRef.current && !isObservationProcessingRef.current) {
+          isObservationProcessingRef.current = true;
           try {
-            const metrics = await analyzeFace(videoRef.current);
+            // Use fast mode for background observation to skip expensive inferences
+            const metrics = await analyzeFace(videoRef.current, { fast: true });
             if (metrics) {
               const image = captureCurrentFrame();
               if (image) {
@@ -228,6 +240,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             }
           } catch (e) {
             // Silent fail for background observation
+          } finally {
+            isObservationProcessingRef.current = false;
           }
         }
       }, 250);

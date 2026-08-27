@@ -1,0 +1,3 @@
+## 2025-06-24 - Accessible List Items with Nested Actions
+**Learning:** When adding keyboard navigation to a card that contains nested actions (like a delete button), event propagation must be handled for both click AND keydown events. Additionally, using `aria-labelledby` on the card container is better than a generic `aria-label` as it preserves the rich content (title/date) for screen readers while providing a clear focus purpose.
+**Action:** Always ensure nested buttons call `e.stopPropagation()` on `onKeyDown` to prevent parent card activation, and use `aria-labelledby` to associate the card with its internal labels.

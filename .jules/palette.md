@@ -1,0 +1,3 @@
+## 2025-06-22 - [Accessibility & Keyboard Navigation Patterns]
+**Learning:** For keyboard-accessible list items with hidden actions (like a delete button), use `group-focus-within:opacity-100` on the action element to ensure it is visible to keyboard users navigating the parent card via tab key. Additionally, when enhancing accessibility for semantic `<button>` elements, avoid redundant `onKeyDown` handlers for Space/Enter as browsers trigger `onClick` automatically; however, ensure `e.stopPropagation()` is present in `onClick` to prevent unintended parent interactions.
+**Action:** Use `group-focus-within` for discoverability and focus on semantic attributes (ARIA, roles) over redundant JS handlers.

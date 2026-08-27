@@ -599,6 +599,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="What do you wish to know?"
+                aria-label="Ask the Oracle a question"
                 className="w-full px-8 py-4 rounded-full bg-[#1a1a1a]/5 border border-gold/30 text-[#1a1a1a] focus:outline-none focus:border-gold transition-all pr-16 font-serif italic"
                 disabled={isAskingQuestion}
               />
@@ -955,12 +956,19 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
       {/* Page Navigation Tabs */}
       <div className="flex justify-start sm:justify-center mb-8 overflow-x-auto px-4 pb-4 no-scrollbar">
-        <div className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap">
+        <div
+          className="flex gap-2 p-1.5 bg-[#1a1a1a]/5 rounded-full border border-[#1a1a1a]/10 whitespace-nowrap"
+          role="tablist"
+        >
           {pages.map((page, index) => (
             <button
               key={page.id}
+              id={`tab-${page.id}`}
+              role="tab"
+              aria-selected={currentPage === index}
+              aria-controls={`page-panel-${page.id}`}
               onClick={() => setCurrentPage(index)}
-              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-gold/50 outline-none ${
                 currentPage === index 
                   ? 'bg-[#1a1a1a] text-gold shadow-md' 
                   : 'text-[#1a1a1a]/50 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5'
@@ -1032,7 +1040,13 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {renderPageContent()}
+                  <div
+                    role="tabpanel"
+                    id={`page-panel-${pages[currentPage].id}`}
+                    aria-labelledby={`tab-${pages[currentPage].id}`}
+                  >
+                    {renderPageContent()}
+                  </div>
                 </AnimatePresence>
             </div>
         </motion.div>
@@ -1050,7 +1064,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
+                aria-label="Previous page"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1087,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
+                aria-label="Next page"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>

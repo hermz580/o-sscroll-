@@ -1,0 +1,3 @@
+## 2026-06-07 - Accessible Complex List Items
+**Learning:** When creating interactive cards (like history items) that contain secondary actions (like delete), nesting a <button> inside a div with role="button" requires explicit event propagation management. Specifically, both 'click' and 'keydown' events on the inner button must stop propagation to avoid double-triggering the card's primary action. Additionally, using `group-focus-within` ensures that "hover-only" actions remain discoverable and usable for keyboard users.
+**Action:** Always use e.stopPropagation() in nested interactive elements and ensure secondary actions are visible when the parent container receives focus.

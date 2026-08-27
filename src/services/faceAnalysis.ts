@@ -64,6 +64,9 @@ export async function initModels() {
   }
 }
 
+// Optimization: Pre-allocate options to avoid garbage collection overhead in the analysis loop
+const FACE_API_OPTIONS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
+
 export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
@@ -84,7 +87,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+    const faResult = await faceapi.detectSingleFace(media, FACE_API_OPTIONS)
       .withFaceExpressions()
       .withAgeAndGender();
 

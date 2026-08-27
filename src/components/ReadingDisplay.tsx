@@ -523,7 +523,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose relative">
+            <div className="markdown-body magical-text text-[#1a1a1a]/90 font-serif text-xl md:text-2xl leading-loose relative reading-content">
               <div className="text-center mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#1a1a1a]/10">
                 <p className="text-[10px] md:text-sm uppercase tracking-[0.3em] text-gold/80 font-sans">Temporal Alignment</p>
                 <p className="text-base md:text-lg font-serif italic text-[#1a1a1a]/60 mt-2">
@@ -629,7 +629,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                     <div className="w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center shrink-0">
                       <Sparkles className="w-4 h-4 text-gold" />
                     </div>
-                    <div className="markdown-body text-lg text-[#1a1a1a]/80 leading-relaxed italic">
+                    <div className="markdown-body text-lg text-[#1a1a1a]/80 leading-relaxed italic reading-content">
                       <MemoizedMarkdown 
                         components={simpleMarkdownComponents} 
                         content={q.answer} 
@@ -1100,7 +1100,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                       const utterance = new SpeechSynthesisUtterance(highlightedWord.word);
                       window.speechSynthesis.speak(utterance);
                     }}
-                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors"
+                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+                    aria-label="Play word"
                     title="Play word"
                   >
                     <Play className="w-3 h-3" />

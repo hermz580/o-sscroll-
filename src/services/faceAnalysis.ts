@@ -64,7 +64,18 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Caching for expensive face-api.js calls during high-frequency loops
+let lastAge: number | null = null;
+let lastGender: string | null = null;
+let lastExpressions: any = null;
+let lastNuanced: any = null;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Full refresh every 15 calls in fast mode
+
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +95,30 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: Skip expensive face-api.js inferences if in fast mode and cache is fresh
+    const shouldRefresh = !options.fast || refreshCounter >= CACHE_REFRESH_RATE || !lastExpressions;
+
+    let faResult;
+    if (shouldRefresh) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    } else {
+      refreshCounter++;
+      faResult = {
+        age: lastAge!,
+        gender: lastGender!,
+        expressions: lastExpressions,
+        detection: {} // Mock for compatibility
+      };
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -189,8 +221,20 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     // Micro-expression Intensity: Sum of all small facial movements
     const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
 
+    const nuanced = shouldRefresh ? {
+      contempt,
+      disdain,
+      skepticism,
+      fear,
+      microExpressionIntensity
+    } : lastNuanced;
+
+    if (shouldRefresh) {
+      lastNuanced = nuanced;
+    }
+
     // Emotions
-    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+    const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b: any) => a[1] > b[1] ? a : b)[0];
 
     // Granular Data
     const granularData = {
@@ -234,13 +278,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       emotions: {
         dominant: dominantEmotion,
         scores: faResult.expressions as any,
-        nuanced: {
-          contempt,
-          disdain,
-          skepticism,
-          fear,
-          microExpressionIntensity
-        }
+        nuanced
       },
       granularData,
       age: faResult.age,

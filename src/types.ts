@@ -150,6 +150,11 @@ export interface ReadingResponse {
     sacredGeometry: string;
     planetaryResonance: string;
   };
+  energyMap?: {
+    shape: string;
+    texture: string;
+    interaction: string;
+  };
   definitions?: Record<string, string>;
   dailySeed?: string;
   voiceFrequency?: number;

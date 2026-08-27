@@ -2,8 +2,9 @@ import React, { useState, useEffect, ReactNode, useRef, useMemo } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { ReadingResponse } from '../types';
-import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Moon, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight, Music, RefreshCw, Users, Leaf, GitBranch, Zap, Calendar, Star, History, Play, Square } from 'lucide-react';
+import { ScrollText, BookOpen, Wind, Flame, Share2, ChevronDown, ChevronUp, BarChart3, Eye, Brain, Activity, Smile, User, Sparkles, Hand, Download, Sun, Moon, Heart, Briefcase, Compass, Droplets, ChevronLeft, ChevronRight, Music, RefreshCw, Users, Leaf, GitBranch, Zap, Calendar, Star, History, Play, Square, Volume2 } from 'lucide-react';
 import { toCanvas } from 'html-to-image';
+import { BirthChart } from './BirthChart';
 import jsPDF from 'jspdf';
 import { generateDailyForecast, generateDeepDive } from '../services/readingService';
 
@@ -371,6 +372,7 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
   const [isLoadingDeepDive, setIsLoadingDeepDive] = useState<'love' | 'career' | 'ancestral' | 'spiritual' | 'shadow' | 'health' | 'dharma' | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [highlightedWord, setHighlightedWord] = useState<{word: string, definition: string | null} | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [question, setQuestion] = useState('');
 
   const handleAskQuestion = async (e: React.FormEvent) => {
@@ -432,6 +434,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
   const basePages = [
     { id: 'resonance', label: 'The Resonance' },
+    { id: 'soul-signature', label: 'Soul Signature' },
+    { id: 'emergent', label: 'The Unseen' },
     { id: 'oracle', label: 'Question the Oracle' },
     { id: 'breakdown', label: 'Features & Traditions' },
     { id: 'cosmic', label: 'Cosmic Alignment' },
@@ -440,7 +444,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
   ];
 
   if (reading.celestialChartAnalysis) {
-    basePages.splice(4, 0, { id: 'celestial-pdf', label: 'Celestial Chart' });
+    const cosmicIdx = basePages.findIndex(p => p.id === 'cosmic');
+    basePages.splice(cosmicIdx + 1, 0, { id: 'celestial-pdf', label: 'Celestial Chart' });
   }
 
   const pages = basePages;
@@ -502,6 +507,24 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
     }
   };
 
+  const handleReadAloud = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const content = pages[currentPage].id === 'soul-signature'
+      ? `${reading.synthesis?.soulSignature}. ${reading.synthesis?.soulMission}. ${reading.synthesis?.emergencePath}. ${reading.synthesis?.ancestralEcho}`
+      : reading.poeticReading;
+    const utterance = new SpeechSynthesisUtterance(content);
+    utterance.rate = 0.85;
+    utterance.pitch = 0.85;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleShare = () => {
     const text = `${reading.poeticReading}\n\nReadings from Olari's Resonance`;
     navigator.clipboard.writeText(text).then(() => {
@@ -511,6 +534,10 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
       console.error("Failed to copy text:", err);
     });
   };
+
+  useEffect(() => {
+    return () => { window.speechSynthesis.cancel(); };
+  }, []);
 
   const renderPageContent = () => {
     switch (pages[currentPage].id) {
@@ -789,6 +816,20 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                 </div>
               </div>
             </div>
+            {reading.cosmicAlignment?.planets && reading.cosmicAlignment.planets.length > 0 && (
+              <div className="col-span-1 md:col-span-2 mt-4">
+                <h3 className="text-xl font-serif italic text-gold mb-4 flex items-center gap-2">
+                  <Star className="w-5 h-5" />
+                  Celestial Radix
+                </h3>
+                <BirthChart
+                  planets={reading.cosmicAlignment.planets}
+                  houses={reading.cosmicAlignment.houses || []}
+                  aspects={reading.cosmicAlignment.aspects || []}
+                  size={500}
+                />
+              </div>
+            )}
           </motion.div>
         );
       case 'deep-dives': // Deep Dives
@@ -927,6 +968,216 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
             </div>
           </motion.div>
         );
+      case 'soul-signature': {
+        return (
+          <motion.div
+            key="page-soul-signature"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            {/* Aura Orb */}
+            <div className="relative h-56 rounded-3xl overflow-hidden border border-gold/20" style={{ backgroundColor: `${auraHex}10` }}>
+              <EnergyField color={auraHex} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                <div
+                  className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl border-2"
+                  style={{ backgroundColor: `${auraHex}25`, borderColor: auraHex, boxShadow: `0 0 60px ${auraHex}50` }}
+                >
+                  <Sparkles className="w-10 h-10" style={{ color: auraHex }} />
+                </div>
+                <p className="mt-3 font-label text-[10px] uppercase tracking-[0.4em]" style={{ color: auraHex }}>Aura Frequency</p>
+                <p className="font-mono text-xs text-[#1a1a1a]/60 mt-1">{auraHex}</p>
+              </div>
+            </div>
+
+            {/* Core Identity Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20 space-y-1">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Core Archetype</span>
+                <p className="font-headline italic text-lg leading-snug" style={{ color: readableAuraColorLightBg }}>{reading.synthesis?.coreArchetype || '—'}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20 space-y-1">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Elemental Constitution</span>
+                <p className="font-headline italic text-lg leading-snug" style={{ color: readableAuraColorLightBg }}>{reading.synthesis?.elementalConstitution || '—'}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20 space-y-1">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Zodiac</span>
+                <p className="font-headline italic text-lg leading-snug" style={{ color: readableAuraColorLightBg }}>{reading.synthesis?.zodiac || '—'}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-[#1a1a1a]/5 border border-gold/20 space-y-1">
+                <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Life Path</span>
+                <p className="font-headline italic text-lg leading-snug" style={{ color: readableAuraColorLightBg }}>{reading.synthesis?.lifePath || '—'}</p>
+              </div>
+            </div>
+
+            {/* Kepler Astrology if available */}
+            {reading.keplerAstrology && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 space-y-1 text-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Primary Harmonic</span>
+                  <p className="font-serif italic text-sm text-[#1a1a1a]/70">{reading.keplerAstrology.primaryHarmonic}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 space-y-1 text-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Sacred Geometry</span>
+                  <p className="font-serif italic text-sm text-[#1a1a1a]/70">{reading.keplerAstrology.sacredGeometry}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 space-y-1 text-center">
+                  <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Planetary Resonance</span>
+                  <p className="font-serif italic text-sm text-[#1a1a1a]/70">{reading.keplerAstrology.planetaryResonance}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Soul Mission */}
+            <div className="p-7 rounded-3xl border-2 space-y-2" style={{ borderColor: `${auraHex}40`, backgroundColor: `${auraHex}06` }}>
+              <span className="text-[10px] uppercase tracking-widest font-bold block" style={{ color: auraHex }}>Soul Mission</span>
+              <p className="font-headline italic text-lg text-[#1a1a1a]/80 leading-relaxed">{reading.synthesis?.soulMission || '—'}</p>
+            </div>
+
+            {/* Emergence Path */}
+            <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 space-y-2">
+              <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Emergence Path</span>
+              <p className="font-serif italic text-[#1a1a1a]/70 leading-relaxed">{reading.synthesis?.emergencePath || '—'}</p>
+            </div>
+
+            {/* Ancestral Echo */}
+            <div className="p-6 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 space-y-2">
+              <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Ancestral Echo</span>
+              <p className="font-serif italic text-[#1a1a1a]/70 leading-relaxed">{reading.synthesis?.ancestralEcho || '—'}</p>
+            </div>
+
+            {/* Daily Seed */}
+            {reading.dailySeed && (
+              <div className="p-6 rounded-2xl border space-y-2" style={{ borderColor: `${auraHex}30`, backgroundColor: `${auraHex}04` }}>
+                <span className="text-[10px] uppercase tracking-widest font-bold block" style={{ color: auraHex }}>Today's Seed</span>
+                <p className="font-serif italic text-[#1a1a1a]/80 leading-relaxed">{reading.dailySeed}</p>
+              </div>
+            )}
+
+            {/* Voice Frequency if captured */}
+            {reading.voiceFrequency && (
+              <div className="p-5 rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 flex items-center gap-4">
+                <Volume2 className="w-5 h-5 text-gold shrink-0" />
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-[#1a1a1a]/40 font-bold block">Vocal Frequency</span>
+                  <p className="font-mono text-sm text-[#1a1a1a]/70">{reading.voiceFrequency.toFixed(2)} Hz</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        );
+      }
+      case 'emergent': {
+        const insights = reading.emergentInsights;
+        const insightCards = [
+          {
+            id: 'theIllusionVeil',
+            title: 'The Illusion Veil',
+            subtitle: 'Mask Detector',
+            icon: <Eye className="w-6 h-6" />,
+            color: '#818cf8',
+            content: insights?.theIllusionVeil,
+          },
+          {
+            id: 'resonanceCoherence',
+            title: 'Resonance Coherence',
+            subtitle: 'Coherence Index',
+            icon: <Activity className="w-6 h-6" />,
+            color: '#2dd4bf',
+            content: insights?.resonanceCoherence,
+          },
+          {
+            id: 'autonomicAlchemy',
+            title: 'Autonomic Alchemy',
+            subtitle: 'Nervous System Portrait',
+            icon: <Flame className="w-6 h-6" />,
+            color: '#fb923c',
+            content: insights?.autonomicAlchemy,
+          },
+          {
+            id: 'chronosVsAion',
+            title: 'Chronos vs Aion',
+            subtitle: 'Age-Vitality Gap',
+            icon: <Calendar className="w-6 h-6" />,
+            color: '#c084fc',
+            content: insights?.chronosVsAion,
+          },
+          {
+            id: 'currentOfWill',
+            title: 'Current of Will',
+            subtitle: 'Energy Direction Map',
+            icon: <Zap className="w-6 h-6" />,
+            color: '#f87171',
+            content: insights?.currentOfWill,
+          },
+        ];
+        return (
+          <motion.div
+            key="page-emergent"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            <div className="text-center">
+              <h3 className="text-2xl font-serif italic text-gold mb-3">The Unseen</h3>
+              <p className="text-[#1a1a1a]/60 text-sm max-w-xl mx-auto">
+                Five emergent dimensions decoded from the intersection of your facial geometry, voice, and biological data.
+              </p>
+            </div>
+
+            {/* Grand Synthesis */}
+            {reading.synthesis?.theUnseen && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 rounded-3xl border space-y-4"
+                style={{ borderColor: `${auraHex}40`, boxShadow: `0 0 40px ${auraHex}15` }}
+              >
+                <span className="text-[10px] uppercase tracking-widest font-bold block" style={{ color: auraHex }}>The Grand Synthesis</span>
+                <div className="markdown-body text-[#1a1a1a]/80 font-serif text-base leading-relaxed">
+                  <MemoizedMarkdown
+                    components={simpleMarkdownComponents}
+                    content={reading.synthesis.theUnseen}
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Five Insight Cards */}
+            <div className="space-y-5">
+              {insightCards.map((card, i) => (
+                <motion.div
+                  key={card.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                  className="p-6 rounded-2xl bg-[#1a1a1a]/5 border"
+                  style={{ borderColor: `${card.color}35` }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${card.color}15`, color: card.color }}
+                    >
+                      {card.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+                        <h4 className="font-serif italic text-lg text-[#1a1a1a]">{card.title}</h4>
+                        <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: card.color }}>{card.subtitle}</span>
+                      </div>
+                      <p className="text-[#1a1a1a]/70 text-sm leading-relaxed">{card.content || 'Data not available for this dimension.'}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        );
+      }
       default:
         return null;
     }
@@ -1081,6 +1332,19 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
 
       {/* Sticky/Fixed Voice Controls */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md md:max-w-lg flex flex-col items-center gap-4" data-html2canvas-ignore="true">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleReadAloud}
+          className={`self-end flex items-center gap-2 px-5 py-2.5 rounded-full backdrop-blur-xl border shadow-2xl transition-all ${
+            isSpeaking
+              ? 'bg-gold text-[#1a1a1a] border-gold/80'
+              : 'bg-[#1a1a1a]/90 text-gold border-gold/30 hover:bg-[#2a2a2a]/90'
+          }`}
+        >
+          {isSpeaking ? <Square className="w-3.5 h-3.5" fill="currentColor" /> : <Volume2 className="w-3.5 h-3.5" />}
+          <span className="font-label text-[10px] uppercase tracking-widest font-bold">{isSpeaking ? 'Stop' : 'Read Aloud'}</span>
+        </motion.button>
         <AnimatePresence>
           {highlightedWord && (
             <motion.div

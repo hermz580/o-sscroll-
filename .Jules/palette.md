@@ -1,0 +1,3 @@
+## 2025-05-15 - Enhancing History Management Accessibility & Safety
+**Learning:** Nesting interactive elements (like a Delete button) inside a larger interactive container (like a history card) creates accessibility challenges. Using `group-focus-within:opacity-100` ensures hidden secondary actions are discoverable for keyboard users, while `e.stopPropagation()` in both `onClick` and `onKeyDown` handlers prevents unintended parent interactions. Adding a thematic confirmation dialog (`window.confirm`) significantly improves safety without breaking the app's mystical immersion.
+**Action:** Always implement `e.stopPropagation()` for nested buttons and ensure secondary actions are visible when the parent container receives focus.

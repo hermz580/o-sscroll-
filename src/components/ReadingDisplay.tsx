@@ -1050,7 +1050,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
+                aria-label="Previous page"
              >
                 <ChevronLeft className="w-6 h-6" />
              </button>
@@ -1072,7 +1073,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
              <button 
                 onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
                 disabled={currentPage === pages.length - 1}
-                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors"
+                className="p-2 text-gold/50 hover:text-gold disabled:opacity-30 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none rounded-full"
+                aria-label="Next page"
              >
                 <ChevronRight className="w-6 h-6" />
              </button>
@@ -1100,7 +1102,8 @@ export const ReadingDisplay: React.FC<ReadingDisplayProps> = ({ reading, onReset
                       const utterance = new SpeechSynthesisUtterance(highlightedWord.word);
                       window.speechSynthesis.speak(utterance);
                     }}
-                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors"
+                    className="p-1.5 rounded-full bg-gold/10 text-gold hover:bg-gold/20 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
+                    aria-label={`Pronounce ${highlightedWord.word}`}
                     title="Play word"
                   >
                     <Play className="w-3 h-3" />

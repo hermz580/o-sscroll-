@@ -187,6 +187,7 @@ export default function App() {
         <button 
           onClick={() => setIsHistoryOpen(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-full glass-morphism border border-gold/20 text-gold text-[10px] font-label uppercase tracking-widest font-bold hover:bg-gold/10 transition-all"
+          aria-label="Open past visions"
         >
           <HistoryIcon className="w-3 h-3" />
           Visions

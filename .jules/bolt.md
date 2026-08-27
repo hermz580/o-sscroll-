@@ -1,0 +1,3 @@
+## 2025-05-15 - Background Observation ML Optimization
+**Learning:** High-frequency ML inference loops (like facial analysis every 250ms) can easily saturate the CPU, especially when multiple heavy models (MediaPipe + face-api.js) are run concurrently. Overlapping async calls in these loops can lead to "cascade failures" where the UI hangs because the main thread is blocked by accumulated micro-tasks.
+**Action:** Always implement a concurrency guard (using a boolean Ref) and a "fast path" for high-frequency loops. For facial analysis, skipping relatively static metrics (age, gender) and only refreshing them periodically (e.g., 1/15 rate) reduces expensive inference overhead by ~90% while maintaining the responsiveness needed for real-time emotional peak detection.

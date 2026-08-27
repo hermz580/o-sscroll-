@@ -64,7 +64,16 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+// Configuration for background observation performance
+const CACHE_REFRESH_RATE = 15; // Refresh expensive metrics every 15 cycles (~3.75s)
+
+// Caching for face-api.js results to reduce CPU overhead in background observation
+let lastAge: number | null = null;
+let lastGender: string | null = null;
+let lastExpressions: faceapi.FaceExpressions | null = null;
+let scanCounter = 0;
+
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +93,31 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    let faResult: any = null;
+    const shouldRefreshCache = scanCounter % CACHE_REFRESH_RATE === 0;
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    if (!options.fast || shouldRefreshCache || !lastAge) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+    } else {
+      // In fast mode, use cached face-api results to save CPU cycles
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions
+      };
+    }
+
+    scanCounter++;
+
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult || (options.fast && !faResult.expressions)) {
       return null;
     }
 
@@ -187,7 +216,9 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
     const fear = (getShape('eyeWideLeft') + getShape('eyeWideRight') + getShape('browInnerUp')) / 3;
 
     // Micro-expression Intensity: Sum of all small facial movements
-    const microExpressionIntensity = blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length;
+    const microExpressionIntensity = blendshapes.length > 0
+      ? blendshapes.reduce((sum, c) => sum + c.score, 0) / blendshapes.length
+      : 0;
 
     // Emotions
     const dominantEmotion = Object.entries(faResult.expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0];

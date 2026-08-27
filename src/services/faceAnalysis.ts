@@ -5,6 +5,12 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Caches for secondary metrics in performance-optimized paths
+let lastAge = 25;
+let lastGender = "unknown";
+let lastExpressions = { neutral: 1 } as any;
+let scanCounter = 0;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,7 +70,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,9 +93,26 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Performance Optimization: Skip heavy face-api.js inferences in background loops
+    // We do a full scan every 15 cycles (approx every 3.75s at 250ms interval) to refresh cached data
+    const shouldDoFullScan = !options.fast || scanCounter % 15 === 0;
+
+    let faResult;
+    if (shouldDoFullScan) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+      }
+      scanCounter = 0;
+    } else {
+      faResult = { age: lastAge, gender: lastGender, expressions: lastExpressions };
+      scanCounter++;
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;

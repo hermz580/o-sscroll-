@@ -1,0 +1,3 @@
+## 2026-05-17 - Background ML Inference Caching
+**Learning:** High-frequency (250ms) background observation loops performing full neural network inferences (face-api.js expressions/age/gender) cause significant CPU overhead and potential main-thread lag in browser environments. Temporal downsampling of secondary metrics while maintaining high-frequency presence/landmark detection provides a balance of responsiveness and efficiency.
+**Action:** Use a 'fast' analysis path with 'last-known-value' caching for secondary ML metrics, refreshing the cache periodically (e.g., every 15 cycles) to maintain data freshness without constant inference cost.

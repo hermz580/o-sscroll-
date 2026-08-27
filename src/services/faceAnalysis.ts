@@ -26,6 +26,8 @@ console.warn = (...args) => { if (!filter(...args)) originalWarn.apply(console, 
 console.error = (...args) => { if (!filter(...args)) originalError.apply(console, args); };
 console.debug = (...args) => { if (!filter(...args)) originalDebug.apply(console, args); };
 
+const FACE_API_OPTIONS = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
+
 export async function initModels() {
   if (modelsLoaded) return;
 
@@ -84,7 +86,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+    const faResult = await faceapi.detectSingleFace(media, FACE_API_OPTIONS)
       .withFaceExpressions()
       .withAgeAndGender();
 
@@ -94,6 +96,7 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
 
     const landmarks = mpResult.faceLandmarks[0];
     const blendshapes = mpResult.faceBlendshapes?.[0]?.categories || [];
+    const shapeMap = new Map<string, number>(blendshapes.map(s => [s.categoryName, s.score]));
 
     // Mian Xiang: Three Stops
     // Index 10: Forehead center top
@@ -168,8 +171,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
 
     const earProminence = Math.abs(landmarks[127].x - landmarks[234].x); // Distance from cheek edge
 
-    // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes
-    const getShape = (name: string) => blendshapes.find(c => c.categoryName === name)?.score || 0;
+    // Nuanced Emotions (Ekman-inspired) using MediaPipe Blendshapes (O(1) lookups via Map)
+    const getShape = (name: string) => shapeMap.get(name) || 0;
     
     // Contempt: Asymmetry in mouth corners (smile/dimple)
     const contempt = Math.abs(getShape('mouthSmileLeft') - getShape('mouthSmileRight')) + 

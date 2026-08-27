@@ -5,6 +5,11 @@ import { FaceMetrics } from "../types";
 let faceLandmarker: FaceLandmarker | null = null;
 let modelsLoaded = false;
 
+// Cache for performance optimization in 'fast' mode
+let lastAge: number = 25;
+let lastGender: string = 'unknown';
+let scanCounter = 0;
+
 // Suppress the "INFO: Created TensorFlow Lite XNNPACK delegate for CPU." message
 // which is a benign log from the underlying C++ WASM module but can be annoying.
 // We do this at the top level to ensure it's active throughout the app lifecycle.
@@ -64,8 +69,10 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement, options: { fast?: boolean } = {}): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
+
+  scanCounter++;
 
   try {
     let mpResult;
@@ -84,9 +91,23 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    // Optimization: In 'fast' mode, we skip the expensive age/gender inference 14/15 times
+    const shouldRefreshAll = !options.fast || scanCounter % 15 === 0;
+
+    let faResult;
+    if (shouldRefreshAll) {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+      }
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions();
+    }
 
     if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
       return null;
@@ -243,8 +264,8 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
         }
       },
       granularData,
-      age: faResult.age,
-      gender: faResult.gender
+      age: (faResult as any).age || lastAge,
+      gender: (faResult as any).gender || lastGender
     };
   } catch (error) {
     console.error("Error during face analysis:", error);

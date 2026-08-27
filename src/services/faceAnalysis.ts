@@ -64,7 +64,16 @@ export async function initModels() {
   }
 }
 
-export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): Promise<FaceMetrics | null> {
+let lastAge: number | undefined;
+let lastGender: string | undefined;
+let lastExpressions: any | undefined;
+let refreshCounter = 0;
+const CACHE_REFRESH_RATE = 15; // Refresh face-api.js models every 15 frames in fast mode
+
+export async function analyzeFace(
+  media: HTMLVideoElement | HTMLImageElement,
+  options: { fast?: boolean } = {}
+): Promise<FaceMetrics | null> {
   if (!faceLandmarker || !modelsLoaded) return null;
 
   try {
@@ -84,11 +93,34 @@ export async function analyzeFace(media: HTMLVideoElement | HTMLImageElement): P
       mpResult = faceLandmarker.detect(media);
     }
 
-    const faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-      .withFaceExpressions()
-      .withAgeAndGender();
+    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0) {
+      return null;
+    }
 
-    if (!mpResult.faceLandmarks || mpResult.faceLandmarks.length === 0 || !faResult) {
+    let faResult;
+    // Optimization: Skip expensive face-api.js calls (expressions, age, gender)
+    // during background observation unless it's time for a cache refresh.
+    if (options.fast && lastAge !== undefined && refreshCounter < CACHE_REFRESH_RATE) {
+      faResult = {
+        age: lastAge,
+        gender: lastGender,
+        expressions: lastExpressions,
+      };
+      refreshCounter++;
+    } else {
+      faResult = await faceapi.detectSingleFace(media, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      if (faResult) {
+        lastAge = faResult.age;
+        lastGender = faResult.gender;
+        lastExpressions = faResult.expressions;
+        refreshCounter = 0;
+      }
+    }
+
+    if (!faResult) {
       return null;
     }
 

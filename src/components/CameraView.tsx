@@ -634,8 +634,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">True Name</label>
+            <label htmlFor="true-name" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1 cursor-pointer">True Name</label>
             <input 
+              id="true-name"
               type="text" 
               placeholder="e.g. Julian Thorne" 
               value={userInfo.name}
@@ -644,8 +645,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Origin Point</label>
+            <label htmlFor="origin-point" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1 cursor-pointer">Origin Point</label>
             <input 
+              id="origin-point"
               type="text" 
               placeholder="Birth City, Country" 
               value={userInfo.birthplace}
@@ -654,8 +656,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Date</label>
+            <label htmlFor="arrival-date" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1 cursor-pointer">Arrival Date</label>
             <input 
+              id="arrival-date"
               type="date" 
               value={userInfo.birthDate}
               onChange={(e) => setUserInfo({...userInfo, birthDate: e.target.value})}
@@ -663,8 +666,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onAnalyze, isAnalyzing }
             />
           </div>
           <div className="space-y-1.5">
-            <label className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1">Arrival Time</label>
+            <label htmlFor="arrival-time" className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 ml-1 cursor-pointer">Arrival Time</label>
             <input 
+              id="arrival-time"
               type="time" 
               value={userInfo.birthTime}
               onChange={(e) => setUserInfo({...userInfo, birthTime: e.target.value})}

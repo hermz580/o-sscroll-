@@ -235,11 +235,13 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
         <div key={tradition.id} className="rounded-2xl bg-[#1a1a1a]/5 border border-[#1a1a1a]/10 overflow-hidden transition-all duration-300">
           <button
             onClick={() => setOpenId(openId === tradition.id ? null : tradition.id)}
-            className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors"
+            aria-expanded={openId === tradition.id}
+            aria-controls={`panel-${tradition.id}`}
+            className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a]/5 transition-colors focus-visible:ring-2 focus-visible:ring-gold/50 outline-none"
           >
             <div className="flex items-center gap-3">
               <div className="text-gold">{tradition.icon}</div>
-              <h3 className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
+              <h3 id={`title-${tradition.id}`} className="text-xl font-serif italic text-[#1a1a1a]">{tradition.name}</h3>
             </div>
             <div className="flex items-center gap-4">
               {openId === tradition.id ? (
@@ -252,6 +254,9 @@ const TraditionsAccordion = ({ reading }: { reading: ReadingResponse }) => {
           <AnimatePresence>
             {openId === tradition.id && (
               <motion.div
+                id={`panel-${tradition.id}`}
+                role="region"
+                aria-labelledby={`title-${tradition.id}`}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}

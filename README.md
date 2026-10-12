@@ -1,13 +1,20 @@
-# O-Scroll (OLARI)
+# O-Scroll / Olari
 
-Face-reading applet built with Google AI Studio (TypeScript). Includes OLARI blueprint notes, symbol generation, and an applet server.
+## Rebuild branch: offline core
 
-## Run locally
+This branch turns the archive entry point into a **local-first guided reflection application**.
 
-1. `npm install`
-2. Set `GEMINI_API_KEY` in `.env.local`
-3. `npm run dev`
+- Birth-date Life Path calculation
+- Zodiac-sign calculation
+- Focus-based reflective prompts
+- On-device reading archive in browser local storage
+- No Gemini key, camera upload, or external AI call required
 
-## Status
+## Run
 
-Prototype archive.
+```bash
+npm install
+npm run dev
+```
+
+The original prototype remains on `main`. This rebuild is on `codex/rebuild-offline-core`.

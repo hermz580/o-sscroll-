@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 type Entry = { date: string; focus: string; reading: string };
 
@@ -43,4 +43,4 @@ export default function App() {
     <section><h2 style={styles.h2}>Your reading archive</h2>{entries.length ? entries.map((e,i)=><article key={i} style={styles.entry}><small>{e.date} · {e.focus}</small><p>{e.reading}</p></article>) : <p style={styles.muted}>Your reflections stay on this device until you choose to export them.</p>}</section>
   </main>;
 }
-const styles: Record<string, React.CSSProperties> = {main:{maxWidth:820,margin:'0 auto',padding:'48px 20px',fontFamily:'system-ui',background:'#090b12',color:'#f6f0de',minHeight:'100vh'},hero:{marginBottom:28},kicker:{color:'#b9e681',letterSpacing:3,fontSize:12},h1:{fontFamily:'Georgia',fontSize:'clamp(2.5rem,8vw,5rem)',lineHeight:.95,margin:'8px 0'},muted:{color:'#abb2c5'},card:{background:'#151b2a',padding:24,border:'1px solid #37425c',borderRadius:16,display:'grid',gap:14},input:{display:'block',width:'100%',marginTop:6,padding:12,background:'#080b12',color:'#fff',border:'1px solid #53627e',borderRadius:8},button:{padding:'14px 18px',background:'#b9e681',border:0,borderRadius:8,fontWeight:800,cursor:'pointer'},result:{display:'flex',gap:12,color:'#f5c76e'},h2:{margin:'0 0 5px'},h2:{fontFamily:'Georgia'},entry:{borderLeft:'3px solid #b9e681',padding:'8px 14px',margin:'14px 0',background:'#111624'}};
+const styles: Record<string, CSSProperties> = {main:{maxWidth:820,margin:'0 auto',padding:'48px 20px',fontFamily:'system-ui',background:'#090b12',color:'#f6f0de',minHeight:'100vh'},hero:{marginBottom:28},kicker:{color:'#b9e681',letterSpacing:3,fontSize:12},h1:{fontFamily:'Georgia',fontSize:'clamp(2.5rem,8vw,5rem)',lineHeight:.95,margin:'8px 0'},muted:{color:'#abb2c5'},card:{background:'#151b2a',padding:24,border:'1px solid #37425c',borderRadius:16,display:'grid',gap:14},input:{display:'block',width:'100%',marginTop:6,padding:12,background:'#080b12',color:'#fff',border:'1px solid #53627e',borderRadius:8},button:{padding:'14px 18px',background:'#b9e681',border:0,borderRadius:8,fontWeight:800,cursor:'pointer'},result:{display:'flex',gap:12,color:'#f5c76e'},h2:{margin:'0 0 5px'},h2:{fontFamily:'Georgia'},entry:{borderLeft:'3px solid #b9e681',padding:'8px 14px',margin:'14px 0',background:'#111624'}};
